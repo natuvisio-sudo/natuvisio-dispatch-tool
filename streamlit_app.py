@@ -3,7 +3,7 @@ import streamlit as st
 # --- PAGE CONFIG ---
 st.set_page_config(
     page_title="NATUVISIO Bridge",
-    page_icon="🌿",
+    page_icon="NATUVISIO Bridge",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
@@ -108,3 +108,4 @@ with col2:
 
 st.markdown("<br><br><br>", unsafe_allow_html=True)
 st.caption("© 2025 NATUVISIO | Authorized Access Only")
+
