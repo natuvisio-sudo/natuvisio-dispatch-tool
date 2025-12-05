@@ -1,72 +1,105 @@
 import streamlit as st
-from twilio.rest import Client
+import urllib.parse
 
-# --- CRITICAL: HOW TO SAVE ---
-# After editing this file, you must click the "Source Control" icon (branch icon) on the left.
-# Then type a message (e.g., "Updated logic") and click "Commit & Push".
-# Only then will your changes go live on the web app.
+# --- CONFIGURATION ---
+# TEST MODE: All brands routed to +601158976276
+# FORMAT: Country Code + Number (No '+' sign, no spaces).
 
-# --- CONFIGURATION (Secrets) ---
-# We will set these in the Streamlit Dashboard later, not here!
-try:
-    TWILIO_SID = st.secrets["TWILIO_SID"]
-    TWILIO_TOKEN = st.secrets["TWILIO_TOKEN"]
-    FROM_NUMBER = st.secrets["FROM_NUMBER"]
-except:
-    st.error("⚠️ Secrets not found! Please set them in Streamlit Cloud.")
-    st.stop()
-
-# --- THE DATABASE ---
 DISPATCH_MAP = {
     "HAKI HEAL": {
-        "sku": "SKU-HAKI-001",
-        "name": "Recovery Oil (50ml)",
-        "phone": "+601158976276" # Replace with real partner number
+        "phone": "601158976276", # TEST NUMBER
+        "products": {
+            "HAKI HEAL CREAM": "SKU-HAKI-CRM-01",
+            "HAKI HEAL VUCUT LOSYONU": "SKU-HAKI-BODY-01",
+            "HAKI HEAL SABUN": "SKU-HAKI-SOAP-01"
+        }
     },
     "AURORACO": {
-        "sku": "SKU-AUR-088",
-        "name": "Ceremonial Matcha",
-        "phone": "+601158976276" # Replace with real partner number
+        "phone": "601158976276", # TEST NUMBER
+        "products": {
+            "AURORACO MATCHA EZMESI": "SKU-AUR-MATCHA",
+            "AURORACO KAKAO EZMESI": "SKU-AUR-CACAO",
+            "AURORACO SUPER GIDA": "SKU-AUR-SUPER"
+        }
     },
     "LONGEVICALS": {
-        "sku": "SKU-LONG-999",
-        "name": "NMN Cold Pack",
-        "phone": "+601158976276" # Replace with real partner number
+        "phone": "601158976276", # TEST NUMBER
+        "products": {
+            "LONGEVICALS DHA": "SKU-LONG-DHA",
+            "LONGEVICALS EPA": "SKU-LONG-EPA"
+        }
     }
 }
 
-# --- THE APP INTERFACE ---
+# --- APP HEADER ---
+st.set_page_config(page_title="NATUVISIO Dispatch", page_icon="🚀")
 st.title("🚀 NATUVISIO Dispatcher")
-st.write("Select a partner to trigger an instant fulfillment request.")
+st.markdown("### Internal Logistics Hub (Free Mode)")
+st.divider()
 
-# Dropdown Selection
-brand = st.selectbox("Select Brand Partner", list(DISPATCH_MAP.keys()))
+# --- INPUT SECTION ---
+col1, col2 = st.columns(2)
 
-# Show Details
-item = DISPATCH_MAP[brand]
-st.info(f"📦 **Ready to Dispatch:** {item['name']} ({item['sku']})")
-
-# The "Big Red Button"
-if st.button(f"⚡ SEND ORDER TO {brand}"):
-    client = Client(TWILIO_SID, TWILIO_TOKEN)
+with col1:
+    # Step 1: Select Brand
+    selected_brand = st.selectbox("Select Partner", list(DISPATCH_MAP.keys()))
     
-    msg_body = (
-        f"🚨 *NATUVISIO ALERT*\n"
-        f"Please ship immediately:\n"
-        f"Item: {item['name']}\n"
-        f"SKU: {item['sku']}\n"
-        f"Confirm when shipped."
-    )
-    
-    try:
-        message = client.messages.create(
-            body=msg_body,
-            from_=FROM_NUMBER,
-            to=f"whatsapp:{item['phone']}"
-        )
-        st.success(f"✅ Message sent! ID: {message.sid}")
-    except Exception as e:
+with col2:
+    priority = st.selectbox("Priority Level", ["Standard", "🚨 URGENT", "🧊 Cold Chain"])
 
-        st.error(f"❌ Failed: {e}")
+# Get Brand Data
+brand_data = DISPATCH_MAP[selected_brand]
 
+# Step 2: Select Product (Dynamic based on Brand)
+product_list = list(brand_data["products"].keys())
+selected_product_name = st.selectbox("Select Product", product_list)
 
+# Get SKU for the selected product
+selected_sku = brand_data["products"][selected_product_name]
+
+# Optional Notes
+custom_note = st.text_input("Special Instructions (Optional)", placeholder="e.g. Include gift note...")
+
+# --- MESSAGE GENERATION ---
+# Clean the phone number just in case
+clean_phone = brand_data['phone'].replace("+", "").replace(" ", "")
+
+# Build the text
+msg_body = (
+    f"*{priority} DISPATCH REQUEST*\n"
+    f"--------------------------------\n"
+    f"📦 *Item:* {selected_product_name}\n"
+    f"🆔 *SKU:* {selected_sku}\n"
+    f"📍 *Dest:* Istanbul Hub\n"
+    f"📝 *Note:* {custom_note if custom_note else 'None'}\n"
+    f"--------------------------------\n"
+    f"Please confirm tracking number."
+)
+
+# Encode for URL
+encoded_msg = urllib.parse.quote(msg_body)
+whatsapp_url = f"https://wa.me/{clean_phone}?text={encoded_msg}"
+
+# --- PREVIEW & SEND ---
+st.info(f"**Target:** {selected_brand} ({clean_phone})")
+st.text_area("Message Preview:", value=msg_body, height=200, disabled=True)
+
+# The "Big Green Button"
+st.markdown(f"""
+    <a href="{whatsapp_url}" target="_blank" style="text-decoration: none;">
+        <div style="
+            background-color: #25D366; 
+            color: white; 
+            padding: 15px 20px; 
+            text-align: center; 
+            border-radius: 10px; 
+            font-size: 18px; 
+            font-weight: bold; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s;">
+            📲 OPEN WHATSAPP TO SEND
+        </div>
+    </a>
+    """, unsafe_allow_html=True)
+
+st.caption("ℹ️ Clicking this opens WhatsApp Web/App with the message ready to send.")
