@@ -37,7 +37,23 @@ st.title("🚀 NATUVISIO Dispatcher")
 st.markdown("### Internal Logistics Hub (Free Mode)")
 st.divider()
 
-# --- INPUT SECTION ---
+# --- SECTION 1: CUSTOMER DETAILS ---
+st.subheader("👤 Customer Information")
+col_c1, col_c2 = st.columns(2)
+
+with col_c1:
+    customer_name = st.text_input("Name Surname", placeholder="e.g. Ahmet Yilmaz")
+    customer_phone = st.text_input("Customer Phone", placeholder="e.g. 0532 555 55 55")
+
+with col_c2:
+    customer_email = st.text_input("Email Address", placeholder="e.g. ahmet@example.com")
+
+customer_address = st.text_area("Full Delivery Address", placeholder="Street, Building, Apt, City...")
+
+st.divider()
+
+# --- SECTION 2: ORDER DETAILS ---
+st.subheader("📦 Order Routing")
 col1, col2 = st.columns(2)
 
 with col1:
@@ -68,9 +84,13 @@ clean_phone = brand_data['phone'].replace("+", "").replace(" ", "")
 msg_body = (
     f"*{priority} DISPATCH REQUEST*\n"
     f"--------------------------------\n"
+    f"👤 *Customer:* {customer_name}\n"
+    f"📞 *Phone:* {customer_phone}\n"
+    f"📧 *Email:* {customer_email}\n"
+    f"🏠 *Address:* {customer_address}\n"
+    f"--------------------------------\n"
     f"📦 *Item:* {selected_product_name}\n"
     f"🆔 *SKU:* {selected_sku}\n"
-    f"📍 *Dest:* Istanbul Hub\n"
     f"📝 *Note:* {custom_note if custom_note else 'None'}\n"
     f"--------------------------------\n"
     f"Please confirm tracking number."
@@ -82,7 +102,7 @@ whatsapp_url = f"https://wa.me/{clean_phone}?text={encoded_msg}"
 
 # --- PREVIEW & SEND ---
 st.info(f"**Target:** {selected_brand} ({clean_phone})")
-st.text_area("Message Preview:", value=msg_body, height=200, disabled=True)
+st.text_area("Message Preview:", value=msg_body, height=300, disabled=True)
 
 # The "Big Green Button"
 st.markdown(f"""
