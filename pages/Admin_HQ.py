@@ -4,7 +4,7 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# --- 1. PAGE CONFIGURATION (MUST BE FIRST) ---
+# --- 1. PAGE CONFIGURATION ---
 st.set_page_config(page_title="Admin HQ", page_icon="🏢", layout="wide")
 
 # --- 2. SECURITY & SETTINGS ---
@@ -62,24 +62,30 @@ def save_to_history(new_entry):
         st.error(f"Failed to save order: {e}")
         return False
 
-# --- 5. PREMIUM STYLING ---
+# --- 5. PREMIUM STYLING (MATCHING LANDING PAGE) ---
 st.markdown("""
     <style>
+    /* BACKGROUND IMAGE */
     .stApp {
         background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.5)), 
                           url("https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp");
         background-size: cover;
         background-attachment: fixed;
     }
-    .stMarkdown, .stDataFrame, div[data-testid="stMetric"] {
+    
+    /* GLASS CONTAINERS */
+    .stMarkdown, .stDataFrame, div[data-testid="stMetric"], div[data-testid="stVerticalBlock"] > div {
         background: rgba(255, 255, 255, 0.95);
         backdrop-filter: blur(12px);
         padding: 20px;
         border-radius: 12px;
         box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
     }
+    
+    /* HEADERS */
     h1, h2, h3 { color: white !important; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
     
+    /* BUTTONS */
     div.stButton > button {
         background: linear-gradient(135deg, #7C9A86 0%, #31462f 100%);
         color: white;
@@ -163,7 +169,7 @@ col_L, col_R = st.columns([1.5, 1])
 with col_L:
     st.markdown("### 👤 1. Customer Details")
     cc1, cc2 = st.columns(2)
-    with cc1: cust_name = st.text_input("Full Name")
+    with cc1: cust_name = st.text_input("Name", placeholder="Full Name")
     with cc2: cust_phone = st.text_input("Phone Number")
     cust_address = st.text_area("Delivery Address", height=70)
     
