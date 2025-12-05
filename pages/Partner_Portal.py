@@ -6,71 +6,76 @@ import os
 st.set_page_config(page_title="Partner Portal", page_icon="🔐", layout="wide")
 
 # --- SHARED SETTINGS ---
-# This must match the filename in your main streamlit_app.py
 CSV_FILE = "dispatch_history.csv"
 
-# --- BRAND CREDENTIALS ---
-# Give these passwords to your partners
+# --- BRAND ACCESS CREDENTIALS ---
 CREDENTIALS = {
     "HAKI HEAL": "haki123",
     "AURORACO": "aurora2025",
     "LONGEVICALS": "longsci"
 }
 
-# --- PREMIUM UI & CSS (MATCHING MAIN APP) ---
-st.markdown(f"""
+# --- PREMIUM STYLING (Matching Main Theme) ---
+st.markdown("""
     <style>
     /* BACKGROUND IMAGE */
-    .stApp {{
+    .stApp {
         background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.5)), 
                           url("https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp");
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
-    }}
+    }
     
-    /* GLASSMORPHISM CARDS */
-    .stMarkdown, .stDataFrame, .stDataEditor {{
-        background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+    /* GLASS CONTAINERS */
+    .stMarkdown, .stDataFrame, .stDataEditor {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(12px);
         padding: 20px;
         border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-    }}
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    }
     
     /* TYPOGRAPHY */
-    h1, h2, h3 {{ 
+    h1, h2, h3 { 
         color: white !important; 
         font-family: 'Helvetica Neue', sans-serif;
-        text-shadow: 0 2px 5px rgba(0,0,0,0.5); 
-    }}
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5); 
+    }
     
     /* BUTTONS */
-    div.stButton > button {{
+    div.stButton > button {
         background: linear-gradient(135deg, #7C9A86 0%, #31462f 100%);
         color: white;
         border: none;
         font-weight: 600;
         border-radius: 8px;
         transition: all 0.3s ease;
-    }}
-    div.stButton > button:hover {{
-        background: linear-gradient(135deg, #8FB59B 0%, #3e593b 100%);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    div.stButton > button:hover {
+        background: linear-gradient(135deg, #A0E8AF 0%, #7C9A86 100%);
+        color: #1a1a1a;
         transform: translateY(-2px);
-    }}
+        box-shadow: 0 4px 12px rgba(160, 232, 175, 0.4);
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- LOGIN LOGIC ---
+# --- LOGIN SCREEN ---
 if 'logged_in_brand' not in st.session_state:
-    st.title("🔐 Partner Access Portal")
-    st.markdown("##### *Secure Logistics Login*")
+    st.title("🔐 Partner Access")
+    
+    # Navigation Back
+    if st.button("⬅️ Back to Main Menu"):
+        st.switch_page("streamlit_app.py")
+    
+    st.divider()
     
     col1, col2, col3 = st.columns([1, 1, 2])
     with col1:
-        brand_user = st.selectbox("Select Your Brand", list(CREDENTIALS.keys()))
+        brand_user = st.selectbox("Select Brand", list(CREDENTIALS.keys()))
     with col2:
         password_input = st.text_input("Access Key", type="password")
         
@@ -93,7 +98,7 @@ with col_head:
 with col_logout:
     if st.button("Log Out"):
         del st.session_state.logged_in_brand
-        st.rerun()
+        st.switch_page("streamlit_app.py")
 
 st.info("👇 **Action Required:** Please mark orders as **Shipped** and enter the **Tracking Number** below. Changes save automatically to NATUVISIO HQ.")
 
