@@ -1,295 +1,419 @@
 import streamlit as st
-import urllib.parse
 import pandas as pd
-import os
 from datetime import datetime
+import os
+import urllib.parse
 
 # --- 1. PAGE CONFIGURATION ---
-st.set_page_config(page_title="Admin HQ", page_icon="🏢", layout="wide")
+st.set_page_config(
+    page_title="Admin HQ | NATUVISIO Bridge",
+    page_icon="🎯",
+    layout="wide"
+)
 
-# --- 2. SECURITY & SETTINGS ---
-ADMIN_PASS = "admin2025"
-CSV_FILE = "dispatch_history.csv"
-
-# --- 3. DATA & PRODUCTS ---
-DISPATCH_MAP = {
-    "HAKI HEAL": {
-        "phone": "601158976276", 
-        "products": {
-            "HAKI HEAL CREAM": {"sku": "SKU-HAKI-CRM-01", "price": 450},
-            "HAKI HEAL VUCUT LOSYONU": {"sku": "SKU-HAKI-BODY-01", "price": 380},
-            "HAKI HEAL SABUN": {"sku": "SKU-HAKI-SOAP-01", "price": 120}
-        }
-    },
-    "AURORACO": {
-        "phone": "601158976276", 
-        "products": {
-            "AURORACO MATCHA EZMESI": {"sku": "SKU-AUR-MATCHA", "price": 650},
-            "AURORACO KAKAO EZMESI": {"sku": "SKU-AUR-CACAO", "price": 550},
-            "AURORACO SUPER GIDA": {"sku": "SKU-AUR-SUPER", "price": 800}
-        }
-    },
-    "LONGEVICALS": {
-        "phone": "601158976276", 
-        "products": {
-            "LONGEVICALS DHA": {"sku": "SKU-LONG-DHA", "price": 1200},
-            "LONGEVICALS EPA": {"sku": "SKU-LONG-EPA", "price": 1150}
-        }
-    }
-}
-
-# --- 4. ROBUST DATABASE FUNCTIONS ---
-def load_history():
-    """Safely loads the CSV history, creating it if missing."""
-    try:
-        if os.path.exists(CSV_FILE):
-            return pd.read_csv(CSV_FILE)
-    except Exception as e:
-        st.error(f"Database Error: {e}")
-    
-    # Return empty structure if file missing or corrupt
-    return pd.DataFrame(columns=["Order_ID", "Time", "Brand", "Customer", "Items", "Total_Value", "Status", "Tracking_Num"])
-
-def save_to_history(new_entry):
-    """Safely appends a new order to the CSV."""
-    try:
-        df = load_history()
-        new_df = pd.DataFrame([new_entry])
-        df = pd.concat([df, new_df], ignore_index=True)
-        df.to_csv(CSV_FILE, index=False)
-        return True
-    except Exception as e:
-        st.error(f"Failed to save order: {e}")
-        return False
-
-# --- 5. PREMIUM STYLING (MATCHING LANDING PAGE) ---
-st.markdown("""
+# --- 2. CSS & STYLING ---
+def load_css():
+    css = """
     <style>
-    /* BACKGROUND IMAGE */
+    @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+    
+    :root {
+        --nv-forest: #183315;
+        --nv-sage: #2d4a2b;
+        --nv-moss: #4a6b45;
+        --nv-cream: #f3f3ec;
+        --nv-pearl: #fafaf5;
+        --font-serif: 'Lora', Georgia, serif;
+        --font-sans: 'Inter', -apple-system, sans-serif;
+    }
+    
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
     .stApp {
-        background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.5)), 
-                          url("https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp");
-        background-size: cover;
-        background-attachment: fixed;
+        background: var(--nv-pearl);
     }
     
-    /* GLASS CONTAINERS */
-    .stMarkdown, .stDataFrame, div[data-testid="stMetric"], div[data-testid="stVerticalBlock"] > div {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(12px);
-        padding: 20px;
+    /* Header */
+    .nv-admin-header {
+        background: linear-gradient(135deg, #183315 0%, #2d4a2b 100%);
+        color: var(--nv-cream);
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 32px rgba(24, 51, 21, 0.2);
+    }
+    
+    .nv-admin-title {
+        font-family: var(--font-serif);
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .nv-admin-subtitle {
+        font-family: var(--font-sans);
+        font-size: 1.1rem;
+        opacity: 0.9;
+        font-weight: 300;
+    }
+    
+    /* Cards */
+    .nv-card {
+        background: white;
         border-radius: 12px;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        box-shadow: 0 4px 16px rgba(24, 51, 21, 0.08);
+        margin-bottom: 1.5rem;
     }
     
-    /* HEADERS */
-    h1, h2, h3 { color: white !important; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-    
-    /* BUTTONS */
-    div.stButton > button {
-        background: linear-gradient(135deg, #7C9A86 0%, #31462f 100%);
-        color: white;
-        border: none;
+    .nv-card-title {
+        font-family: var(--font-serif);
+        font-size: 1.5rem;
+        color: var(--nv-forest);
+        margin-bottom: 1rem;
         font-weight: 600;
-        border-radius: 8px;
-        text-transform: uppercase;
-        transition: all 0.3s ease;
     }
-    div.stButton > button:hover {
-        background: linear-gradient(135deg, #A0E8AF 0%, #7C9A86 100%);
-        color: #1a1a1a;
-        transform: translateY(-2px);
+    
+    /* Buttons */
+    .stButton > button {
+        background: var(--nv-forest) !important;
+        color: var(--nv-cream) !important;
+        border: none !important;
+        padding: 0.75rem 2rem !important;
+        border-radius: 50px !important;
+        font-family: var(--font-sans) !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 16px rgba(24, 51, 21, 0.2) !important;
+    }
+    
+    .stButton > button:hover {
+        background: var(--nv-sage) !important;
+        transform: translateY(-2px) !important;
+    }
+    
+    /* Inputs */
+    .stTextInput > div > div > input,
+    .stSelectbox > div > div > select,
+    .stTextArea > div > div > textarea,
+    .stNumberInput > div > div > input {
+        border-radius: 8px !important;
+        border: 2px solid #e0e0e0 !important;
+        font-family: var(--font-sans) !important;
+    }
+    
+    .stTextInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus {
+        border-color: var(--nv-forest) !important;
+        box-shadow: 0 0 0 2px rgba(24, 51, 21, 0.1) !important;
     }
     </style>
-""", unsafe_allow_html=True)
+    """
+    st.markdown(css, unsafe_allow_html=True)
 
-# --- 6. AUTHENTICATION LOGIC ---
-if 'admin_logged_in' not in st.session_state:
-    st.session_state.admin_logged_in = False
+# --- 3. DATABASE FUNCTIONS ---
+CSV_FILE = 'dispatch_history.csv'
 
-if not st.session_state.admin_logged_in:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    c1, c2, c3 = st.columns([1, 2, 1])
-    with c2:
-        st.title("🏢 NATUVISIO HQ")
-        st.write("Secure Access Required")
-        
-        pwd = st.text_input("Admin Key", type="password")
-        
-        col_login, col_back = st.columns(2)
-        with col_login:
-            if st.button("Unlock Dashboard", type="primary", use_container_width=True):
-                if pwd == ADMIN_PASS:
-                    st.session_state.admin_logged_in = True
-                    st.rerun()
-                else:
-                    st.error("⛔ Access Denied")
-        with col_back:
-            if st.button("⬅️ Main Menu", use_container_width=True):
-                st.switch_page("streamlit_app.py")
-    st.stop() # Stop here if not logged in
+def load_dispatch_history():
+    if os.path.exists(CSV_FILE):
+        return pd.read_csv(CSV_FILE)
+    else:
+        return pd.DataFrame(columns=[
+            'order_id', 'brand', 'sku', 'quantity', 'customer_name', 
+            'phone', 'timestamp', 'status', 'tracking_number'
+        ])
 
-# --- 7. MAIN DASHBOARD ---
-# Initialize Cart
-if 'cart' not in st.session_state: st.session_state.cart = []
-if 'selected_brand_lock' not in st.session_state: st.session_state.selected_brand_lock = None
+def save_dispatch_history(df):
+    df.to_csv(CSV_FILE, index=False)
 
-# Header
-c_head, c_logout = st.columns([6, 1])
-with c_head:
-    st.title("🏢 Admin Command Center")
-with c_logout:
-    if st.button("Logout"):
-        st.session_state.admin_logged_in = False
+# --- 4. AUTHENTICATION ---
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+
+def check_password():
+    load_css()
+    
+    st.markdown("""
+    <div class="nv-admin-header">
+        <div class="nv-admin-title">
+            <span>🎯</span> Admin HQ
+        </div>
+        <div class="nv-admin-subtitle">
+            Command Center · Order Generation · Network Orchestration
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('<div class="nv-card">', unsafe_allow_html=True)
+    st.markdown('<h3 class="nv-card-title">🔐 Secure Access</h3>', unsafe_allow_html=True)
+    
+    password = st.text_input("Enter Admin Password", type="password", key="admin_pass")
+    
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        if st.button("Access Admin HQ", use_container_width=True):
+            if password == "admin2025":
+                st.session_state.logged_in = True
+                st.rerun()
+            else:
+                st.error("❌ Invalid password")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Back to Landing Page
+    if st.button("← Back to Main Menu"):
         st.switch_page("streamlit_app.py")
 
-if st.button("⬅️ Back to Main Menu"):
-    st.switch_page("streamlit_app.py")
-
-st.divider()
-
-# --- 8. METRICS ---
-df = load_history()
-if not df.empty:
-    m1, m2, m3, m4 = st.columns(4)
-    total_val = df["Total_Value"].sum() if "Total_Value" in df.columns else 0
-    shipped = len(df[df['Status'] == 'Shipped']) if "Status" in df.columns else 0
-    pending = len(df[df['Status'] == 'Pending']) if "Status" in df.columns else 0
+# --- 5. MAIN ADMIN INTERFACE ---
+def admin_interface():
+    load_css()
     
-    m1.metric("Total Volume", f"{total_val:,.0f} TL")
-    m2.metric("Total Orders", len(df))
-    m3.metric("Shipped", shipped)
-    m4.metric("Pending", pending)
-
-st.divider()
-
-# --- 9. DISPATCH WORKFLOW ---
-col_L, col_R = st.columns([1.5, 1])
-
-with col_L:
-    st.markdown("### 👤 1. Customer Details")
-    cc1, cc2 = st.columns(2)
-    with cc1: cust_name = st.text_input("Name", placeholder="Full Name")
-    with cc2: cust_phone = st.text_input("Phone Number")
-    cust_address = st.text_area("Delivery Address", height=70)
+    # Header
+    st.markdown("""
+    <div class="nv-admin-header">
+        <div class="nv-admin-title">
+            <span>🎯</span> Admin HQ
+        </div>
+        <div class="nv-admin-subtitle">
+            Command Center · Order Generation · Network Orchestration
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    st.markdown("---")
-    st.markdown("### 🛒 2. Build Shipment")
+    # Navigation Tabs
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📝 New Dispatch",
+        "📊 Active Orders",
+        "📈 Analytics",
+        "⚙️ Settings"
+    ])
     
-    # Brand Locking Logic
-    if st.session_state.cart:
-        st.info(f"🔒 Locked to: **{st.session_state.selected_brand_lock}**")
-        active_brand = st.session_state.selected_brand_lock
-    else:
-        active_brand = st.selectbox("Select Brand Partner", list(DISPATCH_MAP.keys()))
-
-    brand_data = DISPATCH_MAP[active_brand]
-    
-    # Product Adder
-    c_prod, c_qty = st.columns([3, 1])
-    with c_prod:
-        selected_prod = st.selectbox("Select Product", list(brand_data["products"].keys()))
-    with c_qty:
-        qty = st.number_input("Qty", min_value=1, value=1)
+    # TAB 1: New Dispatch
+    with tab1:
+        st.markdown('<div class="nv-card">', unsafe_allow_html=True)
+        st.markdown('<h3 class="nv-card-title">Create New Dispatch Order</h3>', unsafe_allow_html=True)
         
-    prod_details = brand_data["products"][selected_prod]
-    
-    if st.button("➕ Add to Cart"):
-        item_entry = {
-            "brand": active_brand,
-            "product": selected_prod,
-            "sku": prod_details['sku'],
-            "qty": qty,
-            "subtotal": prod_details['price'] * qty
-        }
-        st.session_state.cart.append(item_entry)
-        st.session_state.selected_brand_lock = active_brand
-        st.rerun()
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Order Details")
+            
+            brand = st.selectbox(
+                "Select Brand Partner",
+                ["Longevicals", "Haki Heal", "Auroraco"],
+                key="brand_select"
+            )
+            
+            # Brand-specific SKUs
+            sku_options = {
+                "Longevicals": ["NMN 500mg", "NMN 1000mg", "Resveratrol"],
+                "Haki Heal": ["Matcha Premium", "Matcha Classic", "Green Tea Extract"],
+                "Auroraco": ["Lavender Oil", "Rose Oil", "Bergamot Oil"]
+            }
+            
+            sku = st.selectbox(
+                "Select SKU",
+                sku_options.get(brand, []),
+                key="sku_select"
+            )
+            
+            quantity = st.number_input("Quantity", min_value=1, value=1)
+            
+            cold_chain = st.checkbox("🧊 Cold Chain Required") if brand == "Longevicals" else False
+            
+        with col2:
+            st.subheader("Customer Information")
+            
+            customer_name = st.text_input("Customer Name")
+            phone = st.text_input("Phone Number (Format: 90532XXXXXXX)")
+            address = st.text_area("Delivery Address", height=100)
+            notes = st.text_area("Special Instructions")
+        
+        st.markdown("---")
+        
+        # Dispatch Logic
+        col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+        with col_btn2:
+            if st.button("⚡ Generate Dispatch Order", use_container_width=True):
+                if customer_name and phone:
+                    # Create order
+                    order_id = f"NV{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                    
+                    # Generate WhatsApp message content
+                    whatsapp_msg = f"""*NATUVISIO DISPATCH ORDER*
+━━━━━━━━━━━━━━━━━━━
+🆔 Order ID: {order_id}
+📦 Brand: {brand}
+🏷️ SKU: {sku}
+🔢 Quantity: {quantity}
+{'🧊 COLD CHAIN PRIORITY' if cold_chain else ''}
 
-with col_R:
-    st.markdown("### 📦 3. Review & Dispatch")
-    
-    if st.session_state.cart:
-        cart_df = pd.DataFrame(st.session_state.cart)
-        st.dataframe(cart_df[["product", "qty", "subtotal"]], use_container_width=True, hide_index=True)
-        
-        total_order = cart_df["subtotal"].sum()
-        st.markdown(f"#### Total Value: `{total_order} TL`")
-        
-        priority = st.selectbox("Priority", ["Standard", "🚨 URGENT", "🧊 Cold Chain"])
-        
-        if st.button("⚡ CONFIRM & DISPATCH", type="primary", use_container_width=True):
-            if cust_name and cust_phone:
-                # Generate ID
-                order_id = f"ORD-{datetime.now().strftime('%m%d%H%M%S')}"
-                items_str = ", ".join([f"{i['product']}(x{i['qty']})" for i in st.session_state.cart])
-                
-                # Save to DB
-                new_entry = {
-                    "Order_ID": order_id,
-                    "Time": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    "Brand": active_brand,
-                    "Customer": cust_name,
-                    "Items": items_str,
-                    "Total_Value": total_order,
-                    "Status": "Pending",
-                    "Tracking_Num": ""
-                }
-                
-                if save_to_history(new_entry):
-                    # WhatsApp Link Generation
-                    safe_addr = cust_address.replace("\n", ", ")
-                    target_phone = brand_data['phone'].replace("+", "").replace(" ", "")
+👤 Customer: {customer_name}
+📞 Phone: {phone}
+🏠 Address: {address}
+
+📝 Notes: {notes}
+━━━━━━━━━━━━━━━━━━━
+Please Pack & Ship Immediately. Confirm Tracking."""
                     
-                    msg_body = (
-                        f"*{priority} DISPATCH REQUEST*\n"
-                        f"🆔 Order: {order_id}\n"
-                        f"--------------------------------\n"
-                        f"👤 *Cust:* {cust_name}\n"
-                        f"📞 *Tel:* {cust_phone}\n"
-                        f"🏠 *Addr:* {safe_addr}\n"
-                        f"--------------------------------\n"
-                        f"📦 ITEMS:\n"
-                    )
-                    for item in st.session_state.cart:
-                        msg_body += f"- {item['product']} (x{item['qty']})\n"
+                    # Save to CSV history
+                    df = load_dispatch_history()
+                    new_row = pd.DataFrame([{
+                        'order_id': order_id,
+                        'brand': brand,
+                        'sku': sku,
+                        'quantity': quantity,
+                        'customer_name': customer_name,
+                        'phone': phone,
+                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'status': 'Pending',
+                        'tracking_number': ''
+                    }])
                     
-                    msg_body += f"--------------------------------\nPLEASE CONFIRM TRACKING."
+                    # Concat and Save
+                    df = pd.concat([df, new_row], ignore_index=True)
+                    save_dispatch_history(df)
                     
-                    encoded_msg = urllib.parse.quote(msg_body)
-                    whatsapp_url = f"https://wa.me/{target_phone}?text={encoded_msg}"
+                    # Display success
+                    st.success(f"✅ Order {order_id} created successfully!")
                     
-                    st.success("✅ Order Logged Successfully!")
+                    # Display Raw Message for Review
+                    st.markdown("### 📱 Flash Dispatch Preview")
+                    st.code(whatsapp_msg, language=None)
+                    
+                    # Generate Robust WhatsApp Deep Link
+                    encoded_msg = urllib.parse.quote(whatsapp_msg)
+                    clean_phone = phone.replace("+", "").replace(" ", "")
+                    whatsapp_link = f"https://wa.me/{clean_phone}?text={encoded_msg}"
+                    
+                    # Clickable Button
                     st.markdown(f"""
-                    <a href="{whatsapp_url}" target="_blank" style="text-decoration: none;">
-                        <div style="background: #25D366; color: white; padding: 15px; border-radius: 10px; text-align: center; font-weight: bold; font-size: 18px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
-                            📲 CLICK TO SEND WHATSAPP
+                    <a href="{whatsapp_link}" target="_blank" style="text-decoration: none;">
+                        <div style="background: #25D366; color: white; padding: 15px; border-radius: 12px; text-align: center; font-weight: bold; font-size: 18px; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);">
+                            📲 OPEN IN WHATSAPP
                         </div>
                     </a>
                     """, unsafe_allow_html=True)
-                    
-                    # Clear Cart
-                    st.session_state.cart = []
-                    st.session_state.selected_brand_lock = None
-            else:
-                st.error("⚠️ Missing Customer Name or Phone Number")
-                
-        if st.button("🗑️ Clear Cart"):
-            st.session_state.cart = []
-            st.session_state.selected_brand_lock = None
-            st.rerun()
-    else:
-        st.info("Cart is empty.")
+                else:
+                    st.error("⚠️ Please fill in Customer Name and Phone Number")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # TAB 2: Active Orders
+    with tab2:
+        st.markdown('<div class="nv-card">', unsafe_allow_html=True)
+        st.markdown('<h3 class="nv-card-title">Active Dispatch Orders</h3>', unsafe_allow_html=True)
+        
+        df = load_dispatch_history()
+        
+        if not df.empty:
+            # Filter options
+            col1, col2 = st.columns(2)
+            with col1:
+                brand_filter = st.multiselect(
+                    "Filter by Brand",
+                    options=df['brand'].unique().tolist(),
+                    default=df['brand'].unique().tolist()
+                )
+            with col2:
+                status_filter = st.multiselect(
+                    "Filter by Status",
+                    options=df['status'].unique().tolist(),
+                    default=df['status'].unique().tolist()
+                )
+            
+            # Apply filters
+            filtered_df = df[
+                (df['brand'].isin(brand_filter)) &
+                (df['status'].isin(status_filter))
+            ]
+            
+            # Display dataframe
+            st.dataframe(
+                filtered_df.sort_values('timestamp', ascending=False),
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # Quick stats
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Total Orders", len(filtered_df))
+            c2.metric("Pending", len(filtered_df[filtered_df['status'] == 'Pending']))
+            c3.metric("Shipped", len(filtered_df[filtered_df['status'] == 'Shipped']))
+            c4.metric("Delivered", len(filtered_df[filtered_df['status'] == 'Delivered']))
+        else:
+            st.info("No orders yet. Create your first dispatch order!")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # TAB 3: Analytics
+    with tab3:
+        st.markdown('<div class="nv-card">', unsafe_allow_html=True)
+        st.markdown('<h3 class="nv-card-title">Network Performance Analytics</h3>', unsafe_allow_html=True)
+        
+        df = load_dispatch_history()
+        
+        if not df.empty:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("Orders by Brand")
+                brand_counts = df['brand'].value_counts()
+                st.bar_chart(brand_counts)
+            
+            with col2:
+                st.subheader("Order Status Distribution")
+                status_counts = df['status'].value_counts()
+                st.bar_chart(status_counts)
+            
+            # Recent activity
+            st.subheader("Recent Activity Log")
+            st.dataframe(
+                df.sort_values('timestamp', ascending=False).head(10),
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info("No data available for analytics")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # TAB 4: Settings
+    with tab4:
+        st.markdown('<div class="nv-card">', unsafe_allow_html=True)
+        st.markdown('<h3 class="nv-card-title">System Settings</h3>', unsafe_allow_html=True)
+        
+        st.subheader("Partner Configuration")
+        
+        partners = [
+            {"name": "Longevicals", "status": "Active", "password": "longsci"},
+            {"name": "Haki Heal", "status": "Active", "password": "haki123"},
+            {"name": "Auroraco", "status": "Active", "password": "aurora2025"}
+        ]
+        
+        for partner in partners:
+            with st.expander(f"🌱 {partner['name']}"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.text(f"Status: {partner['status']}")
+                    st.text(f"Portal Password: {partner['password']}")
+                with col2:
+                    st.text("Integration: WhatsApp API")
+                    st.text("Cold Chain: " + ("Yes" if partner['name'] == "Longevicals" else "No"))
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Logout
+    if st.button("🚪 Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
 
-st.divider()
-
-# --- 10. LIVE AUDIT LOG ---
-st.subheader("🔍 Live Fulfillment Log")
-if not df.empty:
-    st.dataframe(
-        df.sort_values(by="Time", ascending=False), 
-        use_container_width=True, 
-        hide_index=True
-    )
+# --- 6. EXECUTION ---
+if not st.session_state.logged_in:
+    check_password()
 else:
-    st.caption("No dispatch history found.")
+    admin_interface()
