@@ -21,17 +21,17 @@ DISPATCH_MAP = {
     "HAKI HEAL": {
         "sku": "SKU-HAKI-001",
         "name": "Recovery Oil (50ml)",
-        "phone": "+905359264991" # Replace with real partner number
+        "phone": "+60 11-5897 6276" # Replace with real partner number
     },
     "AURORACO": {
         "sku": "SKU-AUR-088",
         "name": "Ceremonial Matcha",
-        "phone": "+905359264991" # Replace with real partner number
+        "phone": "+60 11-5897 6276" # Replace with real partner number
     },
     "LONGEVICALS": {
         "sku": "SKU-LONG-999",
         "name": "NMN Cold Pack",
-        "phone": "+905359264991" # Replace with real partner number
+        "phone": "+60 11-5897 6276" # Replace with real partner number
     }
 }
 
@@ -68,3 +68,4 @@ if st.button(f"⚡ SEND ORDER TO {brand}"):
     except Exception as e:
 
         st.error(f"❌ Failed: {e}")
+
