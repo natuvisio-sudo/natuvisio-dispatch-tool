@@ -1,10 +1,10 @@
 import streamlit as st
 import urllib.parse
 import pandas as pd
+import os
 from datetime import datetime
 
 # --- CONFIGURATION & DATA ---
-# Added 'price' to the data structure
 DISPATCH_MAP = {
     "HAKI HEAL": {
         "phone": "601158976276", 
@@ -31,158 +31,230 @@ DISPATCH_MAP = {
     }
 }
 
+CSV_FILE = "dispatch_history.csv"
+
 # --- PAGE CONFIG & STYLING ---
 st.set_page_config(page_title="NATUVISIO Dispatch", page_icon="🚀", layout="wide")
 
-# Custom CSS for "Beautiful" Visuals
 st.markdown("""
     <style>
-    /* Main Background */
     .stApp {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-        color: white;
-    }
-    /* Cards/Containers */
-    .css-1r6slb0, .css-12oz5g7 {
-        background-color: rgba(255, 255, 255, 0.95);
-        border-radius: 15px;
-        padding: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        background: linear-gradient(to right, #ece9e6, #ffffff);
         color: #333;
     }
-    /* Input Fields */
-    .stTextInput>div>div>input, .stSelectbox>div>div>div {
-        border-radius: 10px;
-    }
-    /* Headers */
-    h1, h2, h3 {
-        color: #ffffff !important;
+    .main-header {
         font-family: 'Helvetica Neue', sans-serif;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        color: #1e3c72;
     }
-    .stDataFrame {
-        background-color: white; 
+    .metric-card {
+        background-color: white;
+        padding: 15px;
         border-radius: 10px;
-        padding: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        text-align: center;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- SESSION STATE (For Logging) ---
-if 'order_history' not in st.session_state:
-    st.session_state.order_history = []
+# --- SESSION STATE INITIALIZATION ---
+if 'cart' not in st.session_state:
+    st.session_state.cart = []
+if 'selected_brand_lock' not in st.session_state:
+    st.session_state.selected_brand_lock = None
+
+# --- HELPER FUNCTIONS ---
+def load_history():
+    if os.path.exists(CSV_FILE):
+        return pd.read_csv(CSV_FILE)
+    return pd.DataFrame(columns=["Time", "Brand", "Customer", "Items", "Total_Value"])
+
+def save_to_history(new_entry):
+    df = load_history()
+    # Create a DataFrame for the new entry
+    new_df = pd.DataFrame([new_entry])
+    # Concatenate appropriately
+    df = pd.concat([df, new_df], ignore_index=True)
+    df.to_csv(CSV_FILE, index=False)
 
 # --- APP HEADER ---
 st.title("🚀 NATUVISIO Logistics Hub")
-st.markdown("##### *Bridge Operations Dashboard*")
+st.markdown("##### *Centralized Dispatch Bridge*")
 st.divider()
 
-# --- MAIN FORM ---
-col_main_1, col_main_2 = st.columns([1, 1])
+# --- SECTION 1: CUSTOMER INFO (Top Level for Stability) ---
+st.markdown("### 👤 Step 1: Customer Information")
+c1, c2, c3 = st.columns(3)
+with c1:
+    cust_name = st.text_input("Customer Name", placeholder="Full Name")
+with c2:
+    cust_phone = st.text_input("Customer Phone", placeholder="+90...")
+with c3:
+    cust_email = st.text_input("Customer Email", placeholder="optional")
 
-with col_main_1:
-    st.markdown("### 👤 Customer Details")
-    customer_name = st.text_input("Full Name", placeholder="e.g. Ahmet Yilmaz")
-    col_c1, col_c2 = st.columns(2)
-    with col_c1:
-        customer_phone = st.text_input("Phone", placeholder="0532...")
-    with col_c2:
-        customer_email = st.text_input("Email", placeholder="email@example.com")
-    customer_address = st.text_area("Delivery Address")
-
-with col_main_2:
-    st.markdown("### 📦 Shipment Details")
-    
-    # Brand Selection
-    selected_brand = st.selectbox("Select Partner Brand", list(DISPATCH_MAP.keys()))
-    brand_data = DISPATCH_MAP[selected_brand]
-    
-    # Product Selection
-    product_list = list(brand_data["products"].keys())
-    selected_product_name = st.selectbox("Select Product", product_list)
-    
-    # Get Details
-    product_details = brand_data["products"][selected_product_name]
-    sku = product_details['sku']
-    unit_price = product_details['price']
-    
-    # Quantity & Priority
-    col_p1, col_p2 = st.columns(2)
-    with col_p1:
-        quantity = st.number_input("Quantity", min_value=1, value=1)
-    with col_p2:
-        priority = st.selectbox("Priority", ["Standard", "🚨 URGENT", "🧊 Cold Chain"])
-        
-    # Total
-    total_price = unit_price * quantity
-    st.info(f"💰 **Total Value:** {total_price} TL ({unit_price} TL x {quantity})")
-
-    custom_note = st.text_input("Internal Note", placeholder="Optional...")
+# Debugging note: Address is now full width to prevent cutting off
+cust_address = st.text_area("Full Delivery Address", height=80, placeholder="Street, Apt, City, Zip Code...")
 
 st.divider()
 
-# --- ACTION SECTION ---
-# Logic: We use a button to 'Log' the order, which then reveals the WhatsApp link.
-# This ensures we capture the data before they leave the app.
+# --- SECTION 2: BUILD SHIPMENT (Cart System) ---
+st.markdown("### 📦 Step 2: Build Shipment Package")
 
-if st.button("✅ Confirm & Prepare Order"):
-    if customer_name and customer_phone:
-        # 1. Add to History
-        new_order = {
-            "Time": datetime.now().strftime("%H:%M:%S"),
-            "Brand": selected_brand,
-            "Product": selected_product_name,
-            "Qty": quantity,
-            "Total (TL)": total_price,
-            "Customer": customer_name,
-            "Status": "Generated"
+col_build_1, col_build_2 = st.columns([1, 2])
+
+with col_build_1:
+    # Brand Logic: If cart has items, lock the brand so we don't mix brands in one WhatsApp msg
+    if st.session_state.cart:
+        st.info(f"🔒 Locked to: **{st.session_state.selected_brand_lock}**")
+        active_brand = st.session_state.selected_brand_lock
+    else:
+        active_brand = st.selectbox("Select Partner Brand", list(DISPATCH_MAP.keys()))
+
+    # Product Selection based on active brand
+    brand_data = DISPATCH_MAP[active_brand]
+    product_options = list(brand_data["products"].keys())
+    
+    selected_prod = st.selectbox("Product", product_options)
+    prod_details = brand_data["products"][selected_prod]
+    
+    col_q1, col_q2 = st.columns(2)
+    with col_q1:
+        qty = st.number_input("Qty", min_value=1, value=1)
+    with col_q2:
+        st.markdown(f"<br><b>{prod_details['price']} TL</b> / unit", unsafe_allow_html=True)
+
+    if st.button("➕ Add to Package"):
+        # Add to session cart
+        item_entry = {
+            "brand": active_brand,
+            "product": selected_prod,
+            "sku": prod_details['sku'],
+            "qty": qty,
+            "price": prod_details['price'],
+            "subtotal": prod_details['price'] * qty
         }
-        st.session_state.order_history.append(new_order)
-        st.success("Order Logged Successfully! Click below to dispatch.")
+        st.session_state.cart.append(item_entry)
+        st.session_state.selected_brand_lock = active_brand # Lock brand
+        st.rerun()
+
+with col_build_2:
+    st.markdown("#### Current Package Items")
+    if st.session_state.cart:
+        cart_df = pd.DataFrame(st.session_state.cart)
+        st.dataframe(
+            cart_df[["product", "qty", "sku", "subtotal"]], 
+            use_container_width=True,
+            hide_index=True
+        )
         
-        # 2. Generate WhatsApp Link
-        clean_phone = brand_data['phone'].replace("+", "").replace(" ", "")
+        total_val = cart_df["subtotal"].sum()
+        st.markdown(f"**Total Shipment Value:** `{total_val} TL`")
+        
+        if st.button("🗑️ Clear Package"):
+            st.session_state.cart = []
+            st.session_state.selected_brand_lock = None
+            st.rerun()
+    else:
+        st.caption("Package is empty. Add items from the left.")
+
+st.divider()
+
+# --- SECTION 3: DISPATCH ACTION ---
+st.markdown("### 🚀 Step 3: Dispatch & Log")
+
+priority = st.selectbox("Priority Level", ["Standard", "🚨 URGENT", "🧊 Cold Chain"])
+special_note = st.text_input("Internal Note for Warehouse", placeholder="e.g. Gift wrap required")
+
+if st.button("✅ GENERATE DISPATCH LINK", type="primary", use_container_width=True):
+    if not st.session_state.cart:
+        st.error("❌ Package is empty!")
+    elif not cust_name or not cust_phone or not cust_address:
+        st.error("❌ Missing Customer Name, Phone, or Address!")
+    else:
+        # 1. Prepare Data
+        brand_info = DISPATCH_MAP[st.session_state.selected_brand_lock]
+        target_phone = brand_info['phone'].replace("+", "").replace(" ", "")
+        
+        # 2. Format Items List for WhatsApp
+        items_text = ""
+        items_summary_for_log = []
+        total_shipment_value = 0
+        
+        for item in st.session_state.cart:
+            items_text += f"📦 {item['product']} (x{item['qty']}) - {item['sku']}\n"
+            items_summary_for_log.append(f"{item['product']}(x{item['qty']})")
+            total_shipment_value += item['subtotal']
+            
+        # 3. Build Message
+        # Fix address formatting (newlines can break links)
+        safe_address = cust_address.replace("\n", ", ")
         
         msg_body = (
             f"*{priority} DISPATCH REQUEST*\n"
             f"--------------------------------\n"
-            f"👤 *Cust:* {customer_name}\n"
-            f"📞 *Tel:* {customer_phone}\n"
-            f"🏠 *Addr:* {customer_address}\n"
+            f"👤 *Cust:* {cust_name}\n"
+            f"📞 *Tel:* {cust_phone}\n"
+            f"🏠 *Addr:* {safe_address}\n"
+            f"📧 *Email:* {cust_email}\n"
             f"--------------------------------\n"
-            f"📦 *Item:* {selected_product_name}\n"
-            f"🔢 *Qty:* {quantity}\n"
-            f"🆔 *SKU:* {sku}\n"
-            f"📝 *Note:* {custom_note}\n"
+            f"{items_text}"
             f"--------------------------------\n"
-            f"CONFIRM TRACKING."
+            f"📝 *Note:* {special_note}\n"
+            f"💰 *Val:* {total_shipment_value} TL\n"
+            f"PLEASE CONFIRM TRACKING."
         )
         
         encoded_msg = urllib.parse.quote(msg_body)
-        whatsapp_url = f"https://wa.me/{clean_phone}?text={encoded_msg}"
+        whatsapp_url = f"https://wa.me/{target_phone}?text={encoded_msg}"
         
-        # 3. Show Big Green Button
+        # 4. Save to Unified Log (CSV)
+        log_entry = {
+            "Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Brand": st.session_state.selected_brand_lock,
+            "Customer": cust_name,
+            "Items": ", ".join(items_summary_for_log),
+            "Total_Value": total_shipment_value
+        }
+        save_to_history(log_entry)
+        
+        # 5. Show Success & Link
+        st.success("✅ Order Logged to Database! Click below to send.")
         st.markdown(f"""
         <a href="{whatsapp_url}" target="_blank" style="text-decoration: none;">
-            <div style="background-color: #25D366; color: white; padding: 15px; border-radius: 10px; text-align: center; font-weight: bold; font-size: 20px;">
-                📲 OPEN WHATSAPP NOW
+            <div style="
+                background-color: #25D366; 
+                color: white; 
+                padding: 20px; 
+                border-radius: 12px; 
+                text-align: center; 
+                font-weight: bold; 
+                font-size: 22px; 
+                box-shadow: 0 4px 10px rgba(37, 211, 102, 0.4);">
+                📲 OPEN WHATSAPP TO SEND
             </div>
         </a>
         """, unsafe_allow_html=True)
-        
-    else:
-        st.error("Please fill in Customer Name and Phone to proceed.")
 
-# --- HISTORY LOG ---
+# --- SECTION 4: UNIFIED DISPATCH LOG ---
 st.divider()
-st.markdown("### 📋 Session Dispatch Log")
+st.markdown("### 🗃️ Unified Dispatch History")
 
-if len(st.session_state.order_history) > 0:
-    df = pd.DataFrame(st.session_state.order_history)
-    st.dataframe(df, use_container_width=True)
+history_df = load_history()
+
+if not history_df.empty:
+    # Analytics
+    col_m1, col_m2, col_m3 = st.columns(3)
+    total_revenue = history_df["Total_Value"].sum()
+    total_orders = len(history_df)
+    top_brand = history_df["Brand"].mode()[0] if not history_df.empty else "N/A"
     
-    # Metrics
-    total_sales = sum(item['Total (TL)'] for item in st.session_state.order_history)
-    st.metric("Total Session Value", f"{total_sales} TL")
+    col_m1.metric("Total Dispatched Value", f"{total_revenue:,.0f} TL")
+    col_m2.metric("Total Shipments", total_orders)
+    col_m3.metric("Top Partner", top_brand)
+    
+    # Sort by time desc
+    if "Time" in history_df.columns:
+        history_df = history_df.sort_values(by="Time", ascending=False)
+        
+    st.dataframe(history_df, use_container_width=True, hide_index=True)
 else:
-    st.caption("No orders dispatched in this session yet.")
+    st.info("No dispatch history found yet.")
