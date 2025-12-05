@@ -1,3 +1,33 @@
-streamlit
-pandas
-numpy
+# CORE APP ENGINE
+streamlit==1.32.0
+streamlit-extras==0.4.0
+
+# DATA SCIENCE & SPEED
+pandas==2.2.0
+numpy==1.26.4
+pyarrow==15.0.0
+
+# ZERO-ERROR VALIDATION (The "Peter Norvig" Logic)
+pydantic==2.6.1
+pydantic-settings==2.2.1
+
+# DATABASE & INTEGRITY (The "Stripe" Logic)
+sqlmodel==0.0.16
+sqlalchemy==2.0.27
+
+# PROFESSIONAL UI COMPONENTS (The "Shopify" Logic)
+streamlit-aggrid==0.3.4
+plotly==5.19.0
+streamlit-option-menu==0.3.12
+
+# BANK-GRADE SECURITY
+bcrypt==4.1.2
+python-dotenv==1.0.1
+cryptography==42.0.5
+
+# REPORTING & EXPORTS
+XlsxWriter==3.1.9
+fpdf2==2.7.8
+
+# UTILITIES
+watchdog==4.0.0
