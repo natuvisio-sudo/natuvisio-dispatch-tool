@@ -1,173 +1,214 @@
 import streamlit as st
+import urllib.parse
+import pandas as pd
+import os
+from datetime import datetime
 
 # --- 1. PAGE CONFIGURATION ---
-st.set_page_config(
-    page_title="NATUVISIO Bridge",
-    page_icon="🌿",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="NATUVISIO Dispatch", page_icon="🚀", layout="wide")
 
-# --- 2. PREMIUM CSS STYLING ---
+# --- 2. SETTINGS ---
+CSV_FILE = "dispatch_history.csv"
+
+# --- 3. DATA CONFIGURATION (The "Bridge" Map) ---
+DISPATCH_MAP = {
+    "HAKI HEAL": {
+        "phone": "601158976276", 
+        "products": {
+            "HAKI HEAL CREAM": {"sku": "SKU-HAKI-CRM-01", "price": 450},
+            "HAKI HEAL VUCUT LOSYONU": {"sku": "SKU-HAKI-BODY-01", "price": 380},
+            "HAKI HEAL SABUN": {"sku": "SKU-HAKI-SOAP-01", "price": 120}
+        }
+    },
+    "AURORACO": {
+        "phone": "601158976276", 
+        "products": {
+            "AURORACO MATCHA EZMESI": {"sku": "SKU-AUR-MATCHA", "price": 650},
+            "AURORACO KAKAO EZMESI": {"sku": "SKU-AUR-CACAO", "price": 550},
+            "AURORACO SUPER GIDA": {"sku": "SKU-AUR-SUPER", "price": 800}
+        }
+    },
+    "LONGEVICALS": {
+        "phone": "601158976276", 
+        "products": {
+            "LONGEVICALS DHA": {"sku": "SKU-LONG-DHA", "price": 1200},
+            "LONGEVICALS EPA": {"sku": "SKU-LONG-EPA", "price": 1150}
+        }
+    }
+}
+
+# --- 4. PREMIUM STYLING ---
 st.markdown("""
     <style>
-    /* IMPORT FONTS */
-    @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600&family=Inter:wght@300;400;600&display=swap');
-
     /* BACKGROUND */
     .stApp {
-        background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.5)), 
-                          url("https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp");
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-    }
-
-    /* GLASS CARDS */
-    .custom-card {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 20px;
-        padding: 3rem 2rem;
-        text-align: center;
-        transition: transform 0.3s ease, background 0.3s ease;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    }
-    
-    .custom-card:hover {
-        transform: translateY(-5px);
-        background: rgba(255, 255, 255, 0.15);
-        border-color: rgba(160, 232, 175, 0.5);
-    }
-
-    /* TYPOGRAPHY */
-    h1 {
-        font-family: 'Lora', serif;
-        color: white !important;
-        font-weight: 500;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        text-shadow: 0 4px 10px rgba(0,0,0,0.5);
-        margin: 0;
-        text-align: center;
-        font-size: 3.5rem;
-    }
-    
-    h3 {
-        font-family: 'Inter', sans-serif;
-        color: #e0e0e0 !important;
-        font-weight: 300;
-        font-size: 1.1rem;
-        letter-spacing: 2px;
-        margin-top: 0.5rem;
-        text-align: center;
-        text-transform: uppercase;
-    }
-    
-    .card-header {
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
         color: white;
-        font-size: 1.5rem;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-        font-family: 'Lora', serif;
     }
-    
-    .card-text {
-        color: #d0d0d0;
-        font-family: 'Inter', sans-serif;
-        font-size: 0.9rem;
-        margin-bottom: 2rem;
+    /* CONTAINERS */
+    .stMarkdown, .stDataFrame, div[data-testid="stMetric"] {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 12px;
+        padding: 20px;
+        color: #333;
     }
-
+    /* HEADERS */
+    h1, h2, h3 { color: white !important; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
     /* BUTTONS */
     div.stButton > button {
-        background: linear-gradient(135deg, #7C9A86 0%, #31462f 100%);
-        color: white;
-        width: 100%;
-        padding: 0.8rem 2rem;
-        border-radius: 50px;
-        border: 1px solid rgba(255,255,255,0.1);
-        font-family: 'Inter', sans-serif;
-        font-size: 1rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        background: #25D366; 
+        color: white; 
+        border: none;
+        font-weight: bold;
+        padding: 10px 20px;
+        border-radius: 8px;
     }
-    
-    div.stButton > button:hover {
-        background: linear-gradient(135deg, #A0E8AF 0%, #7C9A86 100%);
-        color: #183315;
-        box-shadow: 0 0 20px rgba(160, 232, 175, 0.4);
-        transform: translateY(-2px);
-        border-color: white;
-    }
-    
-    /* HIDE DEFAULT ELEMENTS */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. MAIN LAYOUT ---
-def main():
-    # Spacing from top
-    st.markdown("<div style='height: 10vh'></div>", unsafe_allow_html=True)
+# --- 5. HELPER FUNCTIONS ---
+def load_history():
+    if os.path.exists(CSV_FILE):
+        return pd.read_csv(CSV_FILE)
+    return pd.DataFrame(columns=["Order_ID", "Time", "Brand", "Customer", "Items", "Total_Value", "Status"])
+
+def save_to_history(new_entry):
+    df = load_history()
+    new_df = pd.DataFrame([new_entry])
+    df = pd.concat([df, new_df], ignore_index=True)
+    df.to_csv(CSV_FILE, index=False)
+
+# --- 6. SESSION STATE (Cart) ---
+if 'cart' not in st.session_state:
+    st.session_state.cart = []
+if 'selected_brand_lock' not in st.session_state:
+    st.session_state.selected_brand_lock = None
+
+# --- 7. MAIN APP LAYOUT ---
+st.title("🚀 NATUVISIO Logistics Hub")
+st.markdown("##### *Single-View Dispatch System*")
+st.divider()
+
+col_L, col_R = st.columns([1.5, 1])
+
+# --- LEFT COLUMN: BUILDER ---
+with col_L:
+    st.markdown("### 👤 1. Customer")
+    c1, c2 = st.columns(2)
+    with c1: cust_name = st.text_input("Name", placeholder="Full Name")
+    with c2: cust_phone = st.text_input("Phone", placeholder="+90...")
+    cust_addr = st.text_area("Address", height=70)
     
-    # Hero Section
-    st.markdown("<h1>NATUVISIO</h1>", unsafe_allow_html=True)
-    st.markdown("<h3>BRIDGE LOGISTICS PLATFORM</h3>", unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("### 🛒 2. Build Shipment")
     
-    st.markdown("<div style='height: 8vh'></div>", unsafe_allow_html=True)
+    # Brand Lock Logic
+    if st.session_state.cart:
+        st.info(f"🔒 Locked to: **{st.session_state.selected_brand_lock}**")
+        active_brand = st.session_state.selected_brand_lock
+    else:
+        active_brand = st.selectbox("Select Brand", list(DISPATCH_MAP.keys()))
 
-    # Portal Grid
-    # We use columns to center the content on wide screens
-    _, col_left, col_right, _ = st.columns([1, 4, 4, 1], gap="large")
-
-    with col_left:
-        st.markdown("""
-        <div class="custom-card">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">🏢</div>
-            <div class="card-header">Admin HQ</div>
-            <div class="card-text">Internal Dispatch Command Center</div>
-        </div>
-        """, unsafe_allow_html=True)
+    brand_data = DISPATCH_MAP[active_brand]
+    
+    # Product Adder
+    cp, cq = st.columns([3, 1])
+    with cp: 
+        selected_prod = st.selectbox("Product", list(brand_data["products"].keys()))
+    with cq: 
+        qty = st.number_input("Qty", min_value=1, value=1)
         
-        # Button container (negative margin to pull it up visually near the card)
-        st.markdown("<div style='margin-top: -20px; position: relative; z-index: 10;'>", unsafe_allow_html=True)
-        if st.button("Enter Command Center", key="btn_hq"):
-            st.switch_page("pages/Admin_HQ.py")
-        st.markdown("</div>", unsafe_allow_html=True)
+    prod_details = brand_data["products"][selected_prod]
+    
+    if st.button("➕ Add to Cart"):
+        st.session_state.cart.append({
+            "brand": active_brand,
+            "product": selected_prod,
+            "sku": prod_details['sku'],
+            "qty": qty,
+            "subtotal": prod_details['price'] * qty
+        })
+        st.session_state.selected_brand_lock = active_brand
+        st.rerun()
 
-    with col_right:
-        st.markdown("""
-        <div class="custom-card">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">🔐</div>
-            <div class="card-header">Partner Portal</div>
-            <div class="card-text">Secure Brand Fulfillment Access</div>
-        </div>
-        """, unsafe_allow_html=True)
+# --- RIGHT COLUMN: REVIEW & SEND ---
+with col_R:
+    st.markdown("### 📦 3. Review")
+    
+    if st.session_state.cart:
+        # Show Table
+        cart_df = pd.DataFrame(st.session_state.cart)
+        st.dataframe(cart_df[["product", "qty", "subtotal"]], use_container_width=True, hide_index=True)
         
-        st.markdown("<div style='margin-top: -20px; position: relative; z-index: 10;'>", unsafe_allow_html=True)
-        if st.button("Partner Login", key="btn_partner"):
-            st.switch_page("pages/Partner_Portal.py")
-        st.markdown("</div>", unsafe_allow_html=True)
+        total = cart_df["subtotal"].sum()
+        st.markdown(f"#### Total Value: `{total} TL`")
+        
+        priority = st.selectbox("Priority", ["Standard", "🚨 URGENT", "🧊 Cold Chain"])
+        
+        if st.button("⚡ LOG & GENERATE LINK"):
+            if cust_name and cust_phone:
+                # 1. Prepare Data
+                oid = f"ORD-{datetime.now().strftime('%m%d%H%M%S')}"
+                items_str = ", ".join([f"{i['product']}(x{i['qty']})" for i in st.session_state.cart])
+                
+                # 2. Save Log
+                save_to_history({
+                    "Order_ID": oid,
+                    "Time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "Brand": active_brand,
+                    "Customer": cust_name,
+                    "Items": items_str,
+                    "Total_Value": total,
+                    "Status": "Generated"
+                })
+                
+                # 3. Create WhatsApp Link
+                safe_addr = cust_addr.replace("\n", ", ")
+                target_phone = brand_data['phone'].replace("+", "").replace(" ", "")
+                
+                msg = (
+                    f"*{priority} DISPATCH REQUEST*\n"
+                    f"🆔 {oid}\n"
+                    f"--------------------------------\n"
+                    f"👤 {cust_name}\n"
+                    f"📞 {cust_phone}\n"
+                    f"🏠 {safe_addr}\n"
+                    f"--------------------------------\n"
+                    f"📦 ITEMS:\n"
+                )
+                for item in st.session_state.cart:
+                    msg += f"- {item['product']} (x{item['qty']})\n"
+                msg += "Please Confirm Tracking."
+                
+                url = f"https://wa.me/{target_phone}?text={urllib.parse.quote(msg)}"
+                
+                st.success("✅ Order Logged!")
+                st.markdown(f"""
+                <a href="{url}" target="_blank" style="text-decoration:none;">
+                    <div style="background:#25D366;color:white;padding:15px;text-align:center;border-radius:10px;font-weight:bold;font-size:20px;">
+                        📲 OPEN WHATSAPP
+                    </div>
+                </a>
+                """, unsafe_allow_html=True)
+                
+                # Cleanup
+                st.session_state.cart = []
+                st.session_state.selected_brand_lock = None
+            else:
+                st.error("Missing Name/Phone!")
+                
+        if st.button("Clear Cart"):
+            st.session_state.cart = []
+            st.session_state.selected_brand_lock = None
+            st.rerun()
+    else:
+        st.info("Cart is empty.")
 
-    # Footer
-    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
-    st.markdown("""
-        <div style='text-align: center; color: rgba(255,255,255,0.5); font-family: "Inter"; font-size: 0.8rem;'>
-            © 2025 NATUVISIO OPERATIONS • AUTHORIZED ACCESS ONLY
-        </div>
-    """, unsafe_allow_html=True)
-
-if __name__ == "__main__":
-    main()
+# --- 8. LOGS ---
+st.divider()
+st.subheader("🗃️ Dispatch History")
+df = load_history()
+if not df.empty:
+    st.dataframe(df.sort_values(by="Time", ascending=False), use_container_width=True)
+else:
+    st.caption("No records found.")
