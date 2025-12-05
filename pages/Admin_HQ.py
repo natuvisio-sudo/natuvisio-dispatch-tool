@@ -7,10 +7,13 @@ from datetime import datetime
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Admin HQ", page_icon="🏢", layout="wide")
 
-# --- SHARED SETTINGS ---
+# --- SECURITY: ADMIN CREDENTIALS ---
+ADMIN_PASS = "admin2025"
+
+# --- DATABASE CONNECTION ---
 CSV_FILE = "dispatch_history.csv"
 
-# --- DATA CONFIGURATION ---
+# --- DATA CONFIGURATION (The "Bridge" Map) ---
 DISPATCH_MAP = {
     "HAKI HEAL": {
         "phone": "601158976276", 
@@ -41,32 +44,62 @@ DISPATCH_MAP = {
 def load_history():
     if os.path.exists(CSV_FILE):
         return pd.read_csv(CSV_FILE)
+    # Returns empty DF with correct columns if file doesn't exist
     return pd.DataFrame(columns=["Order_ID", "Time", "Brand", "Customer", "Items", "Total_Value", "Status", "Tracking_Num"])
 
 def save_to_history(new_entry):
     df = load_history()
+    # Convert single dictionary to DataFrame and append
     new_df = pd.DataFrame([new_entry])
     df = pd.concat([df, new_df], ignore_index=True)
     df.to_csv(CSV_FILE, index=False)
 
-# --- PREMIUM STYLING ---
+# --- LOGIN LOGIC ---
+if 'admin_logged_in' not in st.session_state:
+    st.session_state.admin_logged_in = False
+
+if not st.session_state.admin_logged_in:
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns([1,2,1])
+    with c2:
+        st.title("🏢 NATUVISIO HQ Access")
+        st.markdown("Please verify your identity to access the Command Center.")
+        pwd = st.text_input("Enter Admin Key", type="password")
+        
+        if st.button("Unlock Dashboard", type="primary"):
+            if pwd == ADMIN_PASS:
+                st.session_state.admin_logged_in = True
+                st.rerun()
+            else:
+                st.error("⛔ Access Denied: Incorrect Key")
+    st.stop() # Stops the rest of the app from loading if not logged in
+
+# --- PREMIUM UI STYLING ---
 st.markdown(f"""
     <style>
-    /* BACKGROUND */
+    /* BACKGROUND IMAGE & MAIN THEME */
     .stApp {{
         background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.5)), 
                           url("https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp");
         background-size: cover;
         background-attachment: fixed;
     }}
-    /* GLASS CONTAINERS */
-    .stMarkdown, .stDataFrame, div[data-testid="stMetric"] {{
-        background: rgba(255, 255, 255, 0.9);
+    
+    /* GLASS CONTAINERS (Metrics, Forms, Tables) */
+    .stMarkdown, .stDataFrame, div[data-testid="stMetric"], div[data-testid="stVerticalBlock"] > div {{
+        background: rgba(255, 255, 255, 0.95);
         backdrop-filter: blur(12px);
-        padding: 20px;
         border-radius: 12px;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
     }}
+    
+    /* REMOVE BACKGROUND FROM MAIN TITLE SO IT SHOWS ON IMAGE */
+    h1 {{ 
+        background: transparent !important; 
+        color: white !important; 
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5); 
+        padding: 0 !important;
+    }}
+    
     /* METALLIC SAGE BUTTONS */
     div.stButton > button {{
         background: linear-gradient(135deg, #7C9A86 0%, #31462f 100%);
@@ -74,23 +107,36 @@ st.markdown(f"""
         border: none;
         font-weight: 600;
         border-radius: 8px;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }}
     div.stButton > button:hover {{
         background: linear-gradient(135deg, #A0E8AF 0%, #7C9A86 100%);
         color: #1a1a1a;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(160, 232, 175, 0.4);
     }}
-    h1, h2, h3 {{ color: white !important; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- SESSION STATE ---
+# --- SESSION STATE FOR CART ---
 if 'cart' not in st.session_state:
     st.session_state.cart = []
 if 'selected_brand_lock' not in st.session_state:
     st.session_state.selected_brand_lock = None
 
 # --- APP HEADER ---
-st.title("🏢 Admin HQ")
+col_head_1, col_head_2 = st.columns([6,1])
+with col_head_1:
+    st.title("🏢 Admin HQ")
+    st.caption("Internal Dispatch Command Center")
+with col_head_2:
+    if st.button("Logout"):
+        st.session_state.admin_logged_in = False
+        st.switch_page("streamlit_app.py")
+
+# Navigation back to Landing Page
 if st.button("⬅️ Back to Main Menu"):
     st.switch_page("streamlit_app.py")
 
@@ -100,13 +146,15 @@ st.divider()
 df = load_history()
 if not df.empty:
     c1, c2, c3, c4 = st.columns(4)
+    
     total_val = df["Total_Value"].sum()
     shipped_count = len(df[df['Status'] == 'Shipped'])
+    pending_count = len(df[df['Status'] == 'Pending'])
     
     c1.metric("Total Volume", f"{total_val:,.0f} TL")
-    c2.metric("Orders", len(df))
+    c2.metric("Total Orders", len(df))
     c3.metric("Shipped", shipped_count)
-    c4.metric("Pending", len(df) - shipped_count)
+    c4.metric("Pending", pending_count)
 
 st.divider()
 
@@ -118,20 +166,22 @@ with col_L:
     cc1, cc2 = st.columns(2)
     with cc1: cust_name = st.text_input("Name", placeholder="Full Name")
     with cc2: cust_phone = st.text_input("Phone", placeholder="+90...")
-    cust_address = st.text_area("Address", height=70)
+    cust_address = st.text_area("Address", height=70, placeholder="Street, Building, Apt, City...")
     
     st.markdown("---")
-    st.markdown("### 🛒 2. Build Cart")
+    st.markdown("### 🛒 2. Build Shipment")
     
+    # Brand Logic: Lock brand if cart has items
     if st.session_state.cart:
-        st.info(f"🔒 Locked: **{st.session_state.selected_brand_lock}**")
+        st.info(f"🔒 Shipment Locked to: **{st.session_state.selected_brand_lock}**")
         active_brand = st.session_state.selected_brand_lock
     else:
-        active_brand = st.selectbox("Brand Partner", list(DISPATCH_MAP.keys()))
+        active_brand = st.selectbox("Select Brand Partner", list(DISPATCH_MAP.keys()))
 
     brand_data = DISPATCH_MAP[active_brand]
-    c_prod, c_qty = st.columns([3, 1])
     
+    # Product Selector
+    c_prod, c_qty = st.columns([3, 1])
     with c_prod:
         selected_prod = st.selectbox("Product", list(brand_data["products"].keys()))
     with c_qty:
@@ -139,7 +189,8 @@ with col_L:
         
     prod_details = brand_data["products"][selected_prod]
     
-    if st.button("➕ Add"):
+    # Add Button
+    if st.button("➕ Add Item"):
         item_entry = {
             "brand": active_brand,
             "product": selected_prod,
@@ -152,22 +203,30 @@ with col_L:
         st.rerun()
 
 with col_R:
-    st.markdown("### 📦 3. Dispatch")
+    st.markdown("### 📦 3. Dispatch Review")
     
     if st.session_state.cart:
+        # Display Cart
         cart_df = pd.DataFrame(st.session_state.cart)
-        st.dataframe(cart_df[["product", "qty", "subtotal"]], use_container_width=True, hide_index=True)
+        st.dataframe(
+            cart_df[["product", "qty", "subtotal"]], 
+            use_container_width=True, 
+            hide_index=True
+        )
         
         total_order_val = cart_df["subtotal"].sum()
-        st.markdown(f"**Total:** `{total_order_val} TL`")
+        st.markdown(f"#### Total Value: `{total_order_val} TL`")
         
-        priority = st.selectbox("Priority", ["Standard", "🚨 URGENT", "🧊 Cold Chain"])
+        priority = st.selectbox("Priority Level", ["Standard", "🚨 URGENT", "🧊 Cold Chain"])
         
-        if st.button("⚡ DISPATCH VIA WHATSAPP", type="primary"):
+        # DISPATCH BUTTON
+        if st.button("⚡ LOG & DISPATCH VIA WHATSAPP", type="primary", use_container_width=True):
             if cust_name and cust_phone:
+                # 1. Generate ID
                 order_id = f"ORD-{datetime.now().strftime('%m%d%H%M%S')}"
                 items_summary = ", ".join([f"{i['product']}(x{i['qty']})" for i in st.session_state.cart])
                 
+                # 2. Save to Database
                 new_entry = {
                     "Order_ID": order_id,
                     "Time": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -180,6 +239,7 @@ with col_R:
                 }
                 save_to_history(new_entry)
                 
+                # 3. Generate WhatsApp Link
                 safe_addr = cust_address.replace("\n", ", ")
                 target_phone = brand_data['phone'].replace("+", "").replace(" ", "")
                 
@@ -201,29 +261,40 @@ with col_R:
                 encoded_msg = urllib.parse.quote(msg_body)
                 whatsapp_url = f"https://wa.me/{target_phone}?text={encoded_msg}"
                 
-                st.success("✅ Logged!")
+                # 4. Success UI
+                st.success("✅ Order Logged to System!")
                 st.markdown(f"""
                 <a href="{whatsapp_url}" target="_blank" style="text-decoration: none;">
-                    <div style="background: #25D366; color: white; padding: 15px; border-radius: 10px; text-align: center; font-weight: bold;">
-                        📲 SEND WHATSAPP
+                    <div style="background: #25D366; color: white; padding: 15px; border-radius: 10px; text-align: center; font-weight: bold; font-size: 18px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+                        📲 CLICK TO SEND WHATSAPP
                     </div>
                 </a>
                 """, unsafe_allow_html=True)
                 
+                # Clear Session
                 st.session_state.cart = []
                 st.session_state.selected_brand_lock = None
             else:
-                st.error("Missing Customer Info")
+                st.error("⚠️ Missing Customer Name or Phone Number!")
                 
-        if st.button("Clear Cart"):
+        # Clear Cart Button
+        if st.button("🗑️ Clear Cart"):
             st.session_state.cart = []
             st.session_state.selected_brand_lock = None
             st.rerun()
             
     else:
-        st.info("Cart Empty")
+        st.info("Cart is empty. Add items from the left panel.")
 
 st.divider()
-st.subheader("🔍 Live Tracking Log")
+
+# --- LIVE AUDIT LOG ---
+st.subheader("🔍 Live Fulfillment Log")
 if not df.empty:
-    st.dataframe(df.sort_values(by="Time", ascending=False), use_container_width=True)
+    st.dataframe(
+        df.sort_values(by="Time", ascending=False), 
+        use_container_width=True,
+        hide_index=True
+    )
+else:
+    st.caption("No dispatch history found.")
