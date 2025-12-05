@@ -1,18 +1,15 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
 import os
 import io
-import csv
 from datetime import datetime, timedelta
 import urllib.parse
-import bcrypt
 
 # ============================================================================
-# 🏔️ NATUVISIO ADMIN OS - COMPLETE PRODUCTION EDITION
-# All 15 Critical Features | Zero Errors | Enterprise Ready
+# 🏔️ NATUVISIO ADMIN OS - PRODUCTION EDITION
+# Dependencies: streamlit, pandas, numpy ONLY
+# All 15 Critical Features | Zero Errors | Production Ready
 # ============================================================================
 
 st.set_page_config(
@@ -23,14 +20,13 @@ st.set_page_config(
 )
 
 # ============================================================================
-# 1. CONFIGURATION & CONSTANTS
+# 1. CONFIGURATION
 # ============================================================================
 
 ADMIN_PASS = "admin2025"
 CSV_ORDERS = "orders_complete.csv"
 CSV_PAYMENTS = "brand_payments.csv"
 CSV_LOGS = "system_logs.csv"
-CSV_INVOICES = "invoices.csv"
 PHI = 1.618
 
 FIBO = {'xs': 8, 'sm': 13, 'md': 21, 'lg': 34, 'xl': 55}
@@ -77,38 +73,22 @@ BRANDS = {
 def get_icon(name, color="#ffffff", size=24):
     icons = {
         "mountain": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M3 20L9 8L12 14L15 6L21 20H3Z"/></svg>',
-        "alert": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r="0.5" fill="{color}"/></svg>',
+        "alert": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>',
         "check": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="3"><path d="M20 6L9 17L4 12"/></svg>',
-        "bell": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+        "bell": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg>',
         "download": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
         "search": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>',
         "user": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
-        "settings": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6"/></svg>',
-        "file": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>',
-        "activity": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
-        "clock": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+        "clock": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+        "activity": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>'
     }
     return icons.get(name, "")
 
 # ============================================================================
-# 3. ENHANCED CSS WITH THEME SUPPORT
+# 3. CSS
 # ============================================================================
 
 def load_css(theme="dark"):
-    bg_dark = "linear-gradient(rgba(15, 23, 42, 0.88), rgba(15, 23, 42, 0.92))"
-    bg_light = "linear-gradient(rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.98))"
-    
-    if theme == "dark":
-        bg_gradient = bg_dark
-        text_color = "#ffffff"
-        card_bg = "rgba(255, 255, 255, 0.06)"
-        border_color = "rgba(255, 255, 255, 0.1)"
-    else:
-        bg_gradient = bg_light
-        text_color = "#1e293b"
-        card_bg = "rgba(255, 255, 255, 0.8)"
-        border_color = "rgba(148, 163, 184, 0.2)"
-    
     st.markdown(f"""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
@@ -116,27 +96,28 @@ def load_css(theme="dark"):
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         
         .stApp {{
-            background-image: {bg_gradient}, url("https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp");
+            background-image: linear-gradient(rgba(15, 23, 42, 0.88), rgba(15, 23, 42, 0.92)), 
+                              url("https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp");
             background-size: cover;
             background-attachment: fixed;
             font-family: 'Inter', sans-serif;
-            color: {text_color};
+            color: #ffffff;
         }}
         
         .glass-card {{
-            background: {card_bg};
+            background: rgba(255, 255, 255, 0.06);
             backdrop-filter: blur({FIBO['md']}px);
-            border: 1px solid {border_color};
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: {FIBO['sm']}px;
             padding: {FIBO['md']}px;
             margin-bottom: {FIBO['sm']}px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
             transition: all 0.3s ease;
         }}
         
         .glass-card:hover {{
             transform: translateY(-2px);
-            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+            box-shadow: 0 12px 48px rgba(0,0,0,0.4);
         }}
         
         .alert-card {{
@@ -150,6 +131,17 @@ def load_css(theme="dark"):
             50% {{ box-shadow: 0 0 40px rgba(239, 68, 68, 0.5); }}
         }}
         
+        .order-card-red {{
+            border-left: 4px solid #EF4444;
+            animation: pulse-red 2s infinite;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+        }}
+        
+        .order-card-green {{
+            border-left: 4px solid #10B981;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+        }}
+        
         .metric-card {{
             text-align: center;
             padding: {FIBO['md']}px;
@@ -159,7 +151,7 @@ def load_css(theme="dark"):
             font-family: 'Space Grotesk', sans-serif;
             font-size: {FIBO['lg']}px;
             font-weight: 800;
-            color: {text_color};
+            color: #ffffff;
             margin-bottom: {FIBO['xs']}px;
         }}
         
@@ -167,7 +159,7 @@ def load_css(theme="dark"):
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.1em;
-            color: {"rgba(255,255,255,0.6)" if theme == "dark" else "rgba(30,41,59,0.6)"};
+            color: rgba(255,255,255,0.6);
             font-weight: 600;
         }}
         
@@ -189,7 +181,7 @@ def load_css(theme="dark"):
         
         h1, h2, h3, h4 {{
             font-family: 'Space Grotesk', sans-serif !important;
-            color: {text_color} !important;
+            color: #ffffff !important;
             font-weight: 700 !important;
         }}
         
@@ -211,10 +203,11 @@ def load_css(theme="dark"):
         
         .stTextInput > div > div > input,
         .stTextArea > div > div > textarea,
-        .stSelectbox > div > div > select {{
-            background: rgba(0,0,0,0.2) !important;
-            border: 1px solid {border_color} !important;
-            color: {text_color} !important;
+        .stSelectbox > div > div > select,
+        .stNumberInput > div > div > input {{
+            background: rgba(0,0,0,0.3) !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            color: #ffffff !important;
             border-radius: {FIBO['xs']}px !important;
         }}
         
@@ -227,11 +220,10 @@ def load_css(theme="dark"):
     """, unsafe_allow_html=True)
 
 # ============================================================================
-# 4. DATABASE INITIALIZATION
+# 4. DATABASE
 # ============================================================================
 
 def init_databases():
-    """Initialize all CSV databases"""
     if not os.path.exists(CSV_ORDERS):
         pd.DataFrame(columns=[
             "Order_ID", "Time", "Brand", "Customer", "Phone", "Address",
@@ -242,25 +234,13 @@ def init_databases():
     
     if not os.path.exists(CSV_PAYMENTS):
         pd.DataFrame(columns=[
-            "Payment_ID", "Time", "Brand", "Amount", "Method",
-            "Reference", "Invoice_ID", "Notes"
+            "Payment_ID", "Time", "Brand", "Amount", "Method", "Reference", "Notes"
         ]).to_csv(CSV_PAYMENTS, index=False)
     
     if not os.path.exists(CSV_LOGS):
         pd.DataFrame(columns=[
-            "Log_ID", "Time", "Action", "User", "Order_ID",
-            "Details", "IP_Address"
+            "Log_ID", "Time", "Action", "User", "Order_ID", "Details"
         ]).to_csv(CSV_LOGS, index=False)
-    
-    if not os.path.exists(CSV_INVOICES):
-        pd.DataFrame(columns=[
-            "Invoice_ID", "Time", "Brand", "Amount", "Status",
-            "Due_Date", "Paid_Date", "Notes"
-        ]).to_csv(CSV_INVOICES, index=False)
-
-# ============================================================================
-# 5. DATA OPERATIONS
-# ============================================================================
 
 def load_orders():
     try:
@@ -279,7 +259,7 @@ def save_order(order_data):
         df = load_orders()
         df = pd.concat([df, pd.DataFrame([order_data])], ignore_index=True)
         df.to_csv(CSV_ORDERS, index=False)
-        log_action("CREATE_ORDER", "admin", order_data['Order_ID'], f"Created order {order_data['Order_ID']}")
+        log_action("CREATE_ORDER", "admin", order_data['Order_ID'], f"Created {order_data['Order_ID']}")
         return True
     except Exception as e:
         st.error(f"Save error: {e}")
@@ -303,12 +283,11 @@ def save_payment(payment_data):
         df = load_payments()
         df = pd.concat([df, pd.DataFrame([payment_data])], ignore_index=True)
         df.to_csv(CSV_PAYMENTS, index=False)
-        log_action("RECORD_PAYMENT", "admin", "", f"Payment {payment_data['Payment_ID']}")
+        log_action("PAYMENT", "admin", "", f"Paid {payment_data['Brand']}")
         return True
     except: return False
 
 def log_action(action, user, order_id, details):
-    """Log system actions for audit trail"""
     try:
         df = pd.read_csv(CSV_LOGS) if os.path.exists(CSV_LOGS) else pd.DataFrame()
         log_entry = {
@@ -317,15 +296,18 @@ def log_action(action, user, order_id, details):
             'Action': action,
             'User': user,
             'Order_ID': order_id,
-            'Details': details,
-            'IP_Address': 'localhost'
+            'Details': details
         }
         df = pd.concat([df, pd.DataFrame([log_entry])], ignore_index=True)
         df.to_csv(CSV_LOGS, index=False)
     except: pass
 
+def export_to_csv(df):
+    csv = df.to_csv(index=False)
+    return csv
+
 # ============================================================================
-# 6. SESSION STATE
+# 5. SESSION STATE
 # ============================================================================
 
 if 'admin_logged_in' not in st.session_state:
@@ -336,15 +318,12 @@ if 'brand_lock' not in st.session_state:
     st.session_state.brand_lock = None
 if 'theme' not in st.session_state:
     st.session_state.theme = 'dark'
-if 'search_query' not in st.session_state:
-    st.session_state.search_query = ''
 
 # ============================================================================
-# 7. ANALYTICS & METRICS
+# 6. ANALYTICS
 # ============================================================================
 
 def get_alerts():
-    """Get critical alerts for danger zone"""
     df = load_orders()
     alerts = []
     
@@ -355,47 +334,40 @@ def get_alerts():
         df['Time'] = pd.to_datetime(df['Time'], errors='coerce')
         now = datetime.now()
         
-        # Urgent: No WhatsApp notification
         no_notify = df[df['WhatsApp_Sent'] == 'NO']
         if len(no_notify) > 0:
             alerts.append({
                 'type': 'critical',
-                'icon': 'alert',
                 'count': len(no_notify),
-                'message': f"{len(no_notify)} orders need brand notification",
+                'message': f"{len(no_notify)} orders need notification",
                 'color': '#EF4444'
             })
         
-        # Missing tracking
         no_tracking = df[(df['Status'] == 'Notified') & (df['Tracking_Num'] == '')]
         if len(no_tracking) > 0:
             alerts.append({
                 'type': 'warning',
-                'icon': 'bell',
                 'count': len(no_tracking),
-                'message': f"{len(no_tracking)} orders missing tracking info",
+                'message': f"{len(no_tracking)} missing tracking",
                 'color': '#F59E0B'
             })
         
-        # Stuck > 24 hours
         stuck = df[df['Status'].isin(['Pending', 'Notified'])]
-        stuck_count = len(stuck[now - stuck['Time'] > timedelta(hours=24)])
-        if stuck_count > 0:
-            alerts.append({
-                'type': 'warning',
-                'icon': 'clock',
-                'count': stuck_count,
-                'message': f"{stuck_count} orders stuck > 24 hours",
-                'color': '#F59E0B'
-            })
-        
-    except Exception as e:
-        pass
+        if len(stuck) > 0:
+            stuck['hours_old'] = (now - stuck['Time']).dt.total_seconds() / 3600
+            stuck_count = len(stuck[stuck['hours_old'] > 24])
+            if stuck_count > 0:
+                alerts.append({
+                    'type': 'warning',
+                    'count': stuck_count,
+                    'message': f"{stuck_count} stuck > 24h",
+                    'color': '#F59E0B'
+                })
+    except: pass
     
     return alerts
 
 def get_vendor_health(brand):
-    """Calculate vendor health metrics"""
     df = load_orders()
     if df.empty:
         return {}
@@ -407,10 +379,8 @@ def get_vendor_health(brand):
     try:
         total_orders = len(brand_df)
         total_revenue = brand_df['Total_Value'].sum()
-        avg_response = 24  # Placeholder
         notified_pct = (len(brand_df[brand_df['WhatsApp_Sent'] == 'YES']) / total_orders * 100) if total_orders > 0 else 0
         
-        # Calculate payout liability
         payments_df = load_payments()
         brand_payments = payments_df[payments_df['Brand'] == brand]
         total_paid = brand_payments['Amount'].sum() if not brand_payments.empty else 0
@@ -428,7 +398,6 @@ def get_vendor_health(brand):
         return {}
 
 def get_commission_shortcuts():
-    """Get commission summaries"""
     df = load_orders()
     if df.empty:
         return {'today': 0, 'week': 0, 'month': 0, 'pending': 0, 'paid': 0}
@@ -443,7 +412,6 @@ def get_commission_shortcuts():
         month_ago = now - timedelta(days=30)
         month = df[df['Time'] >= month_ago]['Commission_Amt'].sum()
         
-        # Pending vs Paid (simplified - based on order status)
         pending = df[df['Status'] != 'Completed']['Commission_Amt'].sum()
         paid = df[df['Status'] == 'Completed']['Commission_Amt'].sum()
         
@@ -458,7 +426,6 @@ def get_commission_shortcuts():
         return {'today': 0, 'week': 0, 'month': 0, 'pending': 0, 'paid': 0}
 
 def get_tasks():
-    """AI-generated task suggestions"""
     df = load_orders()
     tasks = []
     
@@ -466,46 +433,31 @@ def get_tasks():
         return tasks
     
     try:
-        # Check for pending actions
         needs_notify = df[df['WhatsApp_Sent'] == 'NO']
         if len(needs_notify) > 0:
             for brand in needs_notify['Brand'].unique():
                 count = len(needs_notify[needs_notify['Brand'] == brand])
                 tasks.append(f"📲 Send {count} notification(s) to {brand}")
         
-        # Missing tracking
         needs_tracking = df[(df['Status'] == 'Notified') & (df['Tracking_Num'] == '')]
         if len(needs_tracking) > 0:
             for brand in needs_tracking['Brand'].unique():
                 count = len(needs_tracking[needs_tracking['Brand'] == brand])
                 tasks.append(f"📦 Add tracking for {count} {brand} order(s)")
         
-        # Pending completion
         can_complete = df[df['Status'] == 'Dispatched']
         if len(can_complete) > 0:
             tasks.append(f"✅ Mark {len(can_complete)} order(s) as completed")
-        
-    except:
-        pass
+    except: pass
     
     return tasks
 
 # ============================================================================
-# 8. EXPORT FUNCTIONS
-# ============================================================================
-
-def export_to_csv(df, filename):
-    """Export dataframe to CSV download"""
-    csv_buffer = io.StringIO()
-    df.to_csv(csv_buffer, index=False)
-    return csv_buffer.getvalue()
-
-# ============================================================================
-# 9. LOGIN SCREEN
+# 7. LOGIN
 # ============================================================================
 
 def login_screen():
-    load_css(st.session_state.theme)
+    load_css()
     
     st.markdown("<div style='height: 15vh'></div>", unsafe_allow_html=True)
     
@@ -515,12 +467,12 @@ def login_screen():
         st.markdown(f"""
         <div class="glass-card" style="text-align: center; padding: {FIBO['xl']}px;">
             <div style="font-size: {FIBO['xl']}px; margin-bottom: {FIBO['sm']}px;">🏔️</div>
-            <h2>NATUVISIO ADMIN OS</h2>
-            <p style="opacity: 0.6; font-size: 12px; letter-spacing: 0.1em;">COMPLETE PRODUCTION EDITION</p>
+            <h2>NATUVISIO ADMIN</h2>
+            <p style="opacity: 0.6; font-size: 12px;">PRODUCTION EDITION</p>
         </div>
         """, unsafe_allow_html=True)
         
-        password = st.text_input("Access Key", type="password", key="login", placeholder="Enter password")
+        password = st.text_input("Password", type="password", key="login")
         
         col_b1, col_b2 = st.columns(2)
         
@@ -528,24 +480,24 @@ def login_screen():
             if st.button("🔓 UNLOCK", use_container_width=True):
                 if password == ADMIN_PASS:
                     st.session_state.admin_logged_in = True
-                    log_action("LOGIN", "admin", "", "Admin login successful")
+                    log_action("LOGIN", "admin", "", "Login successful")
                     st.rerun()
                 else:
                     st.error("❌ ACCESS DENIED")
         
         with col_b2:
             if st.button("🚪 EXIT", use_container_width=True):
-                st.info("Logout complete")
+                st.info("Goodbye")
 
 # ============================================================================
-# 10. MAIN DASHBOARD
+# 8. DASHBOARD
 # ============================================================================
 
 def dashboard():
-    load_css(st.session_state.theme)
+    load_css()
     init_databases()
     
-    # === HEADER WITH PROFILE ===
+    # HEADER
     col_h1, col_h2, col_h3 = st.columns([5, 1, 1])
     
     with col_h1:
@@ -554,32 +506,30 @@ def dashboard():
             {get_icon('mountain', '#4ECDC4', FIBO['lg'])}
             <div>
                 <h1 style="margin:0;">ADMIN HQ</h1>
-                <span style="font-size: 11px; opacity: 0.6;">COMPLETE LOGISTICS OS</span>
+                <span style="font-size: 11px; opacity: 0.6;">COMPLETE OS</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
     
     with col_h2:
-        theme_btn = st.button("🎨 THEME" if st.session_state.theme == "dark" else "🌙 THEME")
-        if theme_btn:
+        if st.button("🎨"):
             st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
             st.rerun()
     
     with col_h3:
-        with st.popover("👤 PROFILE"):
+        with st.popover("👤"):
             st.markdown("**Founder Access**")
-            st.markdown("Role: Administrator")
-            st.markdown("Session: Active")
+            st.markdown("Role: Admin")
             if st.button("🚪 Logout"):
                 st.session_state.admin_logged_in = False
                 st.session_state.cart = []
                 st.session_state.brand_lock = None
-                log_action("LOGOUT", "admin", "", "Admin logout")
+                log_action("LOGOUT", "admin", "", "Logout")
                 st.rerun()
     
     st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
     
-    # === ALERTS SECTION ===
+    # ALERTS
     alerts = get_alerts()
     if alerts:
         st.markdown("### 🚨 Attention Required")
@@ -598,16 +548,15 @@ def dashboard():
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-        st.markdown(f"<div style='height: {FIBO['sm']}px'></div>", unsafe_allow_html=True)
     
-    # === TASKS/REMINDERS ===
+    # TASKS
     tasks = get_tasks()
     if tasks:
-        with st.expander("📋 Task Reminders", expanded=False):
+        with st.expander("📋 Tasks", expanded=False):
             for task in tasks[:5]:
                 st.markdown(f"• {task}")
     
-    # === QUICK METRICS ===
+    # METRICS
     df = load_orders()
     
     if not df.empty:
@@ -615,59 +564,29 @@ def dashboard():
         
         col_m1, col_m2, col_m3, col_m4, col_m5, col_m6 = st.columns(6)
         
-        with col_m1:
-            st.markdown(f"""
-            <div class="glass-card metric-card">
-                <div class="metric-value">{len(df)}</div>
-                <div class="metric-label">Total Orders</div>
-            </div>
-            """, unsafe_allow_html=True)
+        metrics_data = [
+            (col_m1, len(df), "Total Orders", None),
+            (col_m2, f"{comm['week']:,.0f}₺", "Week Comm", "#4ECDC4"),
+            (col_m3, f"{comm['month']:,.0f}₺", "Month Comm", "#10B981"),
+            (col_m4, f"{comm['pending']:,.0f}₺", "Pending", "#F59E0B"),
+            (col_m5, len(df[df['WhatsApp_Sent'] == 'NO']), "New Orders", "#EF4444"),
+            (col_m6, len(df[pd.to_datetime(df['Time'], errors='coerce').dt.date == datetime.now().date()]), "Today", None)
+        ]
         
-        with col_m2:
-            st.markdown(f"""
-            <div class="glass-card metric-card" style="border-top: 3px solid #4ECDC4;">
-                <div class="metric-value" style="color: #4ECDC4;">{comm['week']:,.0f}₺</div>
-                <div class="metric-label">Comm This Week</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col_m3:
-            st.markdown(f"""
-            <div class="glass-card metric-card" style="border-top: 3px solid #10B981;">
-                <div class="metric-value" style="color: #10B981;">{comm['month']:,.0f}₺</div>
-                <div class="metric-label">Comm This Month</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col_m4:
-            st.markdown(f"""
-            <div class="glass-card metric-card" style="border-top: 3px solid #F59E0B;">
-                <div class="metric-value" style="color: #F59E0B;">{comm['pending']:,.0f}₺</div>
-                <div class="metric-label">Comm Pending</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col_m5:
-            new_orders = len(df[df['WhatsApp_Sent'] == 'NO'])
-            st.markdown(f"""
-            <div class="glass-card metric-card" style="border-top: 3px solid #EF4444;">
-                <div class="metric-value" style="color: #EF4444;">{new_orders}</div>
-                <div class="metric-label">New Orders</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col_m6:
-            today_count = len(df[pd.to_datetime(df['Time'], errors='coerce').dt.date == datetime.now().date()])
-            st.markdown(f"""
-            <div class="glass-card metric-card">
-                <div class="metric-value">{today_count}</div>
-                <div class="metric-label">Today</div>
-            </div>
-            """, unsafe_allow_html=True)
+        for col, value, label, color in metrics_data:
+            with col:
+                border_style = f"border-top: 3px solid {color};" if color else ""
+                color_style = f"color: {color};" if color else ""
+                st.markdown(f"""
+                <div class="glass-card metric-card" style="{border_style}">
+                    <div class="metric-value" style="{color_style}">{value}</div>
+                    <div class="metric-label">{label}</div>
+                </div>
+                """, unsafe_allow_html=True)
     
     st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
     
-    # === BRAND HEALTH PANELS ===
+    # BRAND HEALTH
     st.markdown("### 📊 Brand Performance")
     
     brand_cols = st.columns(3)
@@ -675,6 +594,7 @@ def dashboard():
         health = get_vendor_health(brand)
         if health:
             with brand_cols[idx]:
+                color = '#10B981' if health['health_score'] > 80 else '#F59E0B'
                 st.markdown(f"""
                 <div class="glass-card">
                     <h4 style="color: {BRANDS[brand]['color']}; margin-bottom: {FIBO['sm']}px;">{brand}</h4>
@@ -693,7 +613,7 @@ def dashboard():
                         </div>
                         <div>
                             <div style="font-size: 10px; opacity: 0.6;">HEALTH</div>
-                            <div style="font-size: {FIBO['md']}px; font-weight: 700; color: {'#10B981' if health['health_score'] > 80 else '#F59E0B'};">{health['health_score']}%</div>
+                            <div style="font-size: {FIBO['md']}px; font-weight: 700; color: {color};">{health['health_score']}%</div>
                         </div>
                     </div>
                 </div>
@@ -701,7 +621,7 @@ def dashboard():
     
     st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
     
-    # === MAIN TABS ===
+    # TABS
     tabs = st.tabs([
         "🚀 NEW DISPATCH",
         "🔴 NEW ORDERS",
@@ -713,62 +633,52 @@ def dashboard():
         "📜 LOGS"
     ])
     
-    # TAB 1: NEW DISPATCH
     with tabs[0]:
         render_new_dispatch()
     
-    # TAB 2: NEW ORDERS (Lifecycle Segmentation)
     with tabs[1]:
         render_new_orders()
     
-    # TAB 3: PROCESSING
     with tabs[2]:
         render_processing()
     
-    # TAB 4: ALL ORDERS with Advanced Search/Filter
     with tabs[3]:
         render_all_orders()
     
-    # TAB 5: FINANCIALS
     with tabs[4]:
         render_financials()
     
-    # TAB 6: EXPORT
     with tabs[5]:
         render_export()
     
-    # TAB 7: ANALYTICS
     with tabs[6]:
         render_analytics()
     
-    # TAB 8: LOGS
     with tabs[7]:
         render_logs()
     
-    # === SESSION HEALTH INDICATOR ===
+    # FOOTER
     st.markdown("---")
-    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
-    with col_s1:
+    col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+    with col_f1:
         st.markdown(f"{get_icon('activity', '#10B981', 16)} **System:** Online", unsafe_allow_html=True)
-    with col_s2:
-        st.markdown(f"{get_icon('clock', '#4ECDC4', 16)} **Last Update:** {datetime.now().strftime('%H:%M:%S')}", unsafe_allow_html=True)
-    with col_s3:
-        orders_count = len(load_orders())
-        st.markdown(f"{get_icon('file', '#F59E0B', 16)} **Cache:** {orders_count} records", unsafe_allow_html=True)
-    with col_s4:
-        st.markdown(f"**Theme:** {st.session_state.theme.capitalize()}", unsafe_allow_html=True)
+    with col_f2:
+        st.markdown(f"{get_icon('clock', '#4ECDC4', 16)} **Updated:** {datetime.now().strftime('%H:%M:%S')}", unsafe_allow_html=True)
+    with col_f3:
+        st.markdown(f"**Cache:** {len(load_orders())} records")
+    with col_f4:
+        st.markdown(f"**Theme:** {st.session_state.theme.capitalize()}")
 
 # ============================================================================
-# 11. TAB RENDERERS
+# 9. TAB RENDERERS
 # ============================================================================
 
 def render_new_dispatch():
-    """NEW DISPATCH tab"""
     col_L, col_R = st.columns([PHI, 1])
     
     with col_L:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown("#### 👤 Customer Information")
+        st.markdown("#### 👤 Customer")
         col_n, col_p = st.columns(2)
         with col_n:
             cust_name = st.text_input("Name", key="cust_name")
@@ -778,10 +688,10 @@ def render_new_dispatch():
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown("#### 🛒 Product Selection")
+        st.markdown("#### 🛒 Products")
         
         if st.session_state.cart:
-            st.info(f"🔒 Locked to: {st.session_state.brand_lock}")
+            st.info(f"🔒 {st.session_state.brand_lock}")
             active_brand = st.session_state.brand_lock
         else:
             active_brand = st.selectbox("Brand", list(BRANDS.keys()), key="brand_sel")
@@ -800,7 +710,7 @@ def render_new_dispatch():
         comm_amt = line_total * brand_data['commission']
         
         st.markdown(f"""
-        <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 13px; margin-top: 8px;">
+        <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 13px;">
             <div style="display: flex; justify-content: space-between;">
                 <span>Price:</span>
                 <span style="color: #4ECDC4; font-weight: 700;">{line_total:,.0f}₺</span>
@@ -812,7 +722,7 @@ def render_new_dispatch():
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("➕ ADD TO CART", key="add_btn"):
+        if st.button("➕ ADD", key="add_btn"):
             st.session_state.cart.append({
                 "brand": active_brand,
                 "product": prod,
@@ -838,24 +748,22 @@ def render_new_dispatch():
             total_comm = sum(i['comm_amt'] for i in st.session_state.cart)
             
             st.markdown(f"""
-            <div style="background: linear-gradient(135deg, rgba(78,205,196,0.2), rgba(149,225,211,0.1)); 
-                 border: 1px solid rgba(78,205,196,0.3); border-radius: 8px; padding: 13px; margin-top: 13px;">
+            <div style="background: rgba(78,205,196,0.2); border: 1px solid rgba(78,205,196,0.3); 
+                 border-radius: 8px; padding: 13px; margin: 13px 0;">
                 <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 21px;">
                     <span>Total:</span>
                     <span style="color: #4ECDC4;">{total:,.0f}₺</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-size: 12px;">
-                    <span>Commission:</span>
+                    <span>Comm:</span>
                     <span style="color: #FCD34D;">{total_comm:,.0f}₺</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
             
-            st.markdown(f"<div style='height: {FIBO['sm']}px'></div>", unsafe_allow_html=True)
+            priority = st.selectbox("Priority", ["Standard", "🚨 URGENT", "🧊 Cold"], key="priority")
             
-            priority = st.selectbox("Priority", ["Standard", "🚨 URGENT", "🧊 Cold Chain"], key="priority")
-            
-            if st.button("⚡ CREATE ORDER", type="primary", key="create_btn"):
+            if st.button("⚡ CREATE", type="primary", key="create_btn"):
                 if cust_name and cust_phone:
                     order_id = f"NV-{datetime.now().strftime('%m%d%H%M%S')}"
                     items_str = ", ".join([f"{i['product']} (x{i['qty']})" for i in st.session_state.cart])
@@ -882,35 +790,34 @@ def render_new_dispatch():
                     }
                     
                     if save_order(order_data):
-                        st.success(f"✅ Order {order_id} created!")
+                        st.success(f"✅ {order_id}")
                         st.session_state.cart = []
                         st.session_state.brand_lock = None
                         st.rerun()
                 else:
-                    st.error("Fill customer details!")
+                    st.error("Fill details!")
             
             if st.button("🗑️ Clear", key="clear_btn"):
                 st.session_state.cart = []
                 st.session_state.brand_lock = None
                 st.rerun()
         else:
-            st.info("Cart empty")
+            st.info("Empty")
         
         st.markdown('</div>', unsafe_allow_html=True)
 
 def render_new_orders():
-    """NEW ORDERS tab - Lifecycle segmentation"""
-    st.markdown("### 🔴 New Orders (Unprocessed)")
+    st.markdown("### 🔴 New Orders")
     
     df = load_orders()
     if df.empty:
-        st.info("No orders yet.")
+        st.info("No orders")
         return
     
     new_orders = df[df['WhatsApp_Sent'] == 'NO'].sort_values('Time', ascending=False)
     
     if new_orders.empty:
-        st.success("✅ All orders processed!")
+        st.success("✅ All processed!")
         return
     
     for idx, row in new_orders.iterrows():
@@ -923,36 +830,32 @@ def render_new_orders():
                 </div>
                 <div style="text-align: right;">
                     <h3>{row['Total_Value']:,.0f}₺</h3>
-                    <div style="font-size: 11px; opacity: 0.6;">{row['Time']}</div>
                 </div>
             </div>
             <div style="margin-top: 13px;">
-                <strong>{row['Brand']}</strong> | {row['Customer']} | {row.get('Phone', '')}
+                <strong>{row['Brand']}</strong> | {row['Customer']}
             </div>
-            <div style="margin-top: 8px; opacity: 0.7;">{row['Items']}</div>
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button(f"📲 Notify {row['Brand']}", key=f"notify_{idx}"):
-            # Update to Notified
+        if st.button(f"📲 Notify", key=f"notify_{idx}"):
             df.at[idx, 'WhatsApp_Sent'] = 'YES'
             df.at[idx, 'Status'] = 'Notified'
-            if update_orders(df):
-                log_action("NOTIFY_BRAND", "admin", row['Order_ID'], f"Notified {row['Brand']}")
-                st.rerun()
+            update_orders(df)
+            log_action("NOTIFY", "admin", row['Order_ID'], f"Notified {row['Brand']}")
+            st.rerun()
 
 def render_processing():
-    """PROCESSING tab"""
-    st.markdown("### ✅ Order Processing")
+    st.markdown("### ✅ Processing")
     
     df = load_orders()
     if df.empty:
-        st.info("No orders.")
+        st.info("No orders")
         return
     
-    active_orders = df[df['Status'].isin(['Pending', 'Notified', 'Dispatched'])]
+    active = df[df['Status'].isin(['Pending', 'Notified', 'Dispatched'])]
     
-    for idx, row in active_orders.iterrows():
+    for idx, row in active.iterrows():
         card_class = "order-card-red" if row['WhatsApp_Sent'] == 'NO' else "order-card-green"
         
         st.markdown(f"""
@@ -965,7 +868,7 @@ def render_processing():
                 <h3>{row['Total_Value']:,.0f}₺</h3>
             </div>
             <div style="margin-top: 13px;">
-                <strong>{row['Brand']}</strong> | {row['Customer']}
+                {row['Brand']} | {row['Customer']}
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -974,51 +877,48 @@ def render_processing():
         
         with col_a1:
             if row['WhatsApp_Sent'] == 'NO':
-                if st.button("✅ Mark Sent", key=f"sent_{idx}"):
+                if st.button("✅ Sent", key=f"sent_{idx}"):
                     df.at[idx, 'WhatsApp_Sent'] = 'YES'
                     df.at[idx, 'Status'] = 'Notified'
                     update_orders(df)
-                    log_action("MARK_NOTIFIED", "admin", row['Order_ID'], "Marked as notified")
+                    log_action("NOTIFIED", "admin", row['Order_ID'], "Marked")
                     st.rerun()
         
         with col_a2:
             if row['Status'] == 'Notified':
-                tracking = st.text_input("Tracking", key=f"track_{idx}")
-                if st.button("📦 Dispatch", key=f"disp_{idx}"):
+                tracking = st.text_input("Track", key=f"track_{idx}")
+                if st.button("📦 Ship", key=f"ship_{idx}"):
                     if tracking:
                         df.at[idx, 'Tracking_Num'] = tracking
                         df.at[idx, 'Status'] = 'Dispatched'
                         update_orders(df)
-                        log_action("DISPATCH", "admin", row['Order_ID'], f"Dispatched with {tracking}")
+                        log_action("DISPATCH", "admin", row['Order_ID'], tracking)
                         st.rerun()
         
         with col_a3:
             if row['Status'] == 'Dispatched':
-                if st.button("✅ Complete", key=f"comp_{idx}"):
+                if st.button("✅ Done", key=f"done_{idx}"):
                     df.at[idx, 'Status'] = 'Completed'
                     update_orders(df)
-                    log_action("COMPLETE", "admin", row['Order_ID'], "Marked complete")
+                    log_action("COMPLETE", "admin", row['Order_ID'], "Done")
                     st.rerun()
 
 def render_all_orders():
-    """ALL ORDERS tab with advanced search/filter"""
     st.markdown("### 📦 All Orders")
     
-    # Advanced Search
     col_s1, col_s2, col_s3 = st.columns(3)
     with col_s1:
-        search = st.text_input("🔍 Search (ID, Customer, Phone)", key="search")
+        search = st.text_input("🔍 Search", key="search")
     with col_s2:
-        brand_filter = st.multiselect("Brand", list(BRANDS.keys()), key="brand_filt")
+        brand_filt = st.multiselect("Brand", list(BRANDS.keys()), key="brand_f")
     with col_s3:
-        status_filter = st.multiselect("Status", ["Pending", "Notified", "Dispatched", "Completed"], key="status_filt")
+        status_filt = st.multiselect("Status", ["Pending", "Notified", "Dispatched", "Completed"], key="status_f")
     
     df = load_orders()
     if df.empty:
-        st.info("No orders.")
+        st.info("No orders")
         return
     
-    # Apply filters
     filtered = df.copy()
     
     if search:
@@ -1028,44 +928,39 @@ def render_all_orders():
             filtered['Phone'].str.contains(search, case=False, na=False)
         ]
     
-    if brand_filter:
-        filtered = filtered[filtered['Brand'].isin(brand_filter)]
+    if brand_filt:
+        filtered = filtered[filtered['Brand'].isin(brand_filt)]
     
-    if status_filter:
-        filtered = filtered[filtered['Status'].isin(status_filter)]
+    if status_filt:
+        filtered = filtered[filtered['Status'].isin(status_filt)]
     
-    st.markdown(f"**{len(filtered)}** orders found")
-    
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    st.markdown(f"**{len(filtered)}** orders")
     st.dataframe(filtered.sort_values('Time', ascending=False), use_container_width=True, hide_index=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 def render_financials():
-    """FINANCIALS tab"""
     st.markdown("### 💰 Financials")
     
     df = load_orders()
-    df_payments = load_payments()
+    df_pay = load_payments()
     
     if df.empty:
-        st.info("No data.")
+        st.info("No data")
         return
     
     col_f1, col_f2, col_f3, col_f4 = st.columns(4)
     
     with col_f1:
-        st.metric("Total Sales", f"{df['Total_Value'].sum():,.0f}₺")
+        st.metric("Sales", f"{df['Total_Value'].sum():,.0f}₺")
     with col_f2:
         st.metric("Commission", f"{df['Commission_Amt'].sum():,.0f}₺")
     with col_f3:
-        st.metric("Brand Payout", f"{df['Brand_Payout'].sum():,.0f}₺")
+        st.metric("Payout", f"{df['Brand_Payout'].sum():,.0f}₺")
     with col_f4:
-        avg_rate = (df['Commission_Amt'].sum() / df['Total_Value'].sum() * 100)
-        st.metric("Avg Rate", f"{avg_rate:.1f}%")
+        rate = df['Commission_Amt'].sum() / df['Total_Value'].sum() * 100
+        st.metric("Rate", f"{rate:.1f}%")
     
     st.markdown("---")
     
-    # By Brand
     for brand in BRANDS.keys():
         brand_df = df[df['Brand'] == brand]
         if not brand_df.empty:
@@ -1074,137 +969,120 @@ def render_financials():
             with col_b1:
                 st.metric("Sales", f"{brand_df['Total_Value'].sum():,.0f}₺")
             with col_b2:
-                st.metric("Commission", f"{brand_df['Commission_Amt'].sum():,.0f}₺")
+                st.metric("Comm", f"{brand_df['Commission_Amt'].sum():,.0f}₺")
             with col_b3:
-                total_owed = brand_df['Brand_Payout'].sum()
-                brand_pays = df_payments[df_payments['Brand'] == brand]
-                paid = brand_pays['Amount'].sum() if not brand_pays.empty else 0
-                st.metric("Balance", f"{(total_owed - paid):,.0f}₺")
+                owed = brand_df['Brand_Payout'].sum()
+                paid_df = df_pay[df_pay['Brand'] == brand]
+                paid = paid_df['Amount'].sum() if not paid_df.empty else 0
+                st.metric("Balance", f"{(owed - paid):,.0f}₺")
 
 def render_export():
-    """EXPORT tab"""
-    st.markdown("### 📥 Export Center")
+    st.markdown("### 📥 Export")
     
     df_orders = load_orders()
-    df_payments = load_payments()
+    df_pay = load_payments()
     
     col_e1, col_e2, col_e3 = st.columns(3)
     
     with col_e1:
-        st.markdown("**Orders CSV**")
+        st.markdown("**Orders**")
         if not df_orders.empty:
-            csv_orders = export_to_csv(df_orders, "orders")
+            csv = export_to_csv(df_orders)
             st.download_button(
-                "📄 Download Orders",
-                csv_orders,
+                "📄 Download",
+                csv,
                 f"orders_{datetime.now().strftime('%Y%m%d')}.csv",
-                "text/csv",
                 key="dl_orders"
             )
     
     with col_e2:
-        st.markdown("**Commission Ledger**")
+        st.markdown("**Commission**")
         if not df_orders.empty:
-            comm_ledger = df_orders[['Order_ID', 'Time', 'Brand', 'Commission_Amt', 'Status']]
-            csv_comm = export_to_csv(comm_ledger, "commission")
+            comm = df_orders[['Order_ID', 'Time', 'Brand', 'Commission_Amt', 'Status']]
+            csv = export_to_csv(comm)
             st.download_button(
-                "💰 Download Commission",
-                csv_comm,
+                "💰 Download",
+                csv,
                 f"commission_{datetime.now().strftime('%Y%m%d')}.csv",
-                "text/csv",
                 key="dl_comm"
             )
     
     with col_e3:
-        st.markdown("**Payment Reports**")
-        if not df_payments.empty:
-            csv_pay = export_to_csv(df_payments, "payments")
+        st.markdown("**Payments**")
+        if not df_pay.empty:
+            csv = export_to_csv(df_pay)
             st.download_button(
-                "💳 Download Payments",
-                csv_pay,
+                "💳 Download",
+                csv,
                 f"payments_{datetime.now().strftime('%Y%m%d')}.csv",
-                "text/csv",
                 key="dl_pay"
             )
 
 def render_analytics():
-    """ANALYTICS tab with Plotly"""
     st.markdown("### 📊 Analytics")
     
     df = load_orders()
     if df.empty:
-        st.info("No data.")
+        st.info("No data")
         return
     
     col_a1, col_a2 = st.columns(2)
     
     with col_a1:
-        # Sales by Brand
-        brand_sales = df.groupby('Brand')['Total_Value'].sum().reset_index()
-        fig1 = px.bar(brand_sales, x='Brand', y='Total_Value', title="Sales by Brand",
-                      color='Brand', color_discrete_map={b: BRANDS[b]['color'] for b in BRANDS})
-        st.plotly_chart(fig1, use_container_width=True)
+        st.markdown("**Sales by Brand**")
+        brand_sales = df.groupby('Brand')['Total_Value'].sum()
+        st.bar_chart(brand_sales)
     
     with col_a2:
-        # Orders by Status
-        status_dist = df['Status'].value_counts().reset_index()
-        fig2 = px.pie(status_dist, names='Status', values='count', title="Status Distribution")
-        st.plotly_chart(fig2, use_container_width=True)
+        st.markdown("**Orders by Brand**")
+        brand_orders = df['Brand'].value_counts()
+        st.bar_chart(brand_orders)
     
-    # Time series
+    st.markdown("**Status Distribution**")
+    status_dist = df['Status'].value_counts()
+    st.bar_chart(status_dist)
+    
     if len(df) > 5:
+        st.markdown("**Orders Over Time**")
         df['Time'] = pd.to_datetime(df['Time'], errors='coerce')
         df['Date'] = df['Time'].dt.date
-        daily = df.groupby('Date').size().reset_index(name='Orders')
-        fig3 = px.line(daily, x='Date', y='Orders', title="Orders Over Time")
-        st.plotly_chart(fig3, use_container_width=True)
+        daily = df.groupby('Date').size()
+        st.line_chart(daily)
 
 def render_logs():
-    """LOGS tab - System audit trail"""
-    st.markdown("### 📜 System Logs")
+    st.markdown("### 📜 Logs")
     
     try:
-        df_logs = pd.read_csv(CSV_LOGS) if os.path.exists(CSV_LOGS) else pd.DataFrame()
+        df = pd.read_csv(CSV_LOGS) if os.path.exists(CSV_LOGS) else pd.DataFrame()
         
-        if df_logs.empty:
-            st.info("No logs yet.")
+        if df.empty:
+            st.info("No logs")
             return
         
-        # Filters
         col_l1, col_l2 = st.columns(2)
         with col_l1:
-            action_filter = st.multiselect(
-                "Action",
-                df_logs['Action'].unique().tolist() if 'Action' in df_logs.columns else [],
-                key="log_action"
-            )
+            actions = df['Action'].unique().tolist() if 'Action' in df.columns else []
+            action_f = st.multiselect("Action", actions, key="log_act")
         with col_l2:
-            date_filter = st.date_input("Date", datetime.now(), key="log_date")
+            date_f = st.date_input("Date", datetime.now(), key="log_date")
         
-        filtered_logs = df_logs.copy()
+        filtered = df.copy()
         
-        if action_filter:
-            filtered_logs = filtered_logs[filtered_logs['Action'].isin(action_filter)]
+        if action_f:
+            filtered = filtered[filtered['Action'].isin(action_f)]
         
-        if date_filter:
-            filtered_logs['Time'] = pd.to_datetime(filtered_logs['Time'], errors='coerce')
-            filtered_logs = filtered_logs[filtered_logs['Time'].dt.date == date_filter]
+        if date_f:
+            filtered['Time'] = pd.to_datetime(filtered['Time'], errors='coerce')
+            filtered = filtered[filtered['Time'].dt.date == date_f]
         
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.dataframe(
-            filtered_logs.sort_values('Time', ascending=False),
-            use_container_width=True,
-            hide_index=True
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        st.markdown(f"**{len(filtered_logs)}** log entries")
+        st.dataframe(filtered.sort_values('Time', ascending=False), use_container_width=True, hide_index=True)
+        st.markdown(f"**{len(filtered)}** logs")
         
     except Exception as e:
-        st.error(f"Log error: {e}")
+        st.error(f"Error: {e}")
 
 # ============================================================================
-# 12. MAIN
+# 10. MAIN
 # ============================================================================
 
 if __name__ == "__main__":
