@@ -1,12 +1,15 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px  # Added for better charts
-from datetime import datetime, timedelta
+import numpy as np
 import os
 import urllib.parse
+from datetime import datetime, timedelta
 import random
 
-# --- 1. PAGE CONFIGURATION ---
+# ============================================================================
+# 🏔️ NATUVISIO BRIDGE OS v9.1 (Native Charts Version)
+# ============================================================================
+
 st.set_page_config(
     page_title="NATUVISIO Bridge HQ",
     page_icon="🏔️",
@@ -14,86 +17,92 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. CSS & STYLING (The "Scientific Trust" Aesthetic) ---
+# ============================================================================
+# 1. CSS & STYLING
+# ============================================================================
 def load_css():
-    css = """
+    st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap');
     
+    /* Global Variables */
     :root {
         --nv-forest: #183315;
         --nv-sage: #2d4a2b;
         --nv-gold: #d4af37;
         --nv-cream: #f4f4f0;
-        --nv-white: #ffffff;
     }
     
     .stApp {
         background-color: var(--nv-cream);
+        color: #333333;
     }
     
-    /* Typography */
+    /* Headers */
     h1, h2, h3 {
-        font-family: 'Playfair Display', serif !important;
+        font-family: 'Space Grotesk', sans-serif !important;
         color: var(--nv-forest) !important;
+        font-weight: 700 !important;
     }
     
-    p, div, span, label {
-        font-family: 'Inter', sans-serif !important;
-        color: #333;
-    }
-
-    /* Sidebar Styling */
+    /* Sidebar */
     section[data-testid="stSidebar"] {
         background-color: var(--nv-forest);
     }
-    
-    section[data-testid="stSidebar"] * {
-        color: var(--nv-cream) !important;
+    section[data-testid="stSidebar"] h1, 
+    section[data-testid="stSidebar"] h2, 
+    section[data-testid="stSidebar"] h3, 
+    section[data-testid="stSidebar"] span, 
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] label {
+        color: #ffffff !important;
     }
-
-    /* Cards */
+    
+    /* Metric Cards */
     .metric-card {
         background-color: white;
         padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        border-left: 5px solid var(--nv-forest);
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        border-left: 6px solid var(--nv-forest);
         text-align: center;
     }
-
     .metric-value {
-        font-size: 28px;
+        font-size: 32px;
         font-weight: 700;
         color: var(--nv-forest);
-        font-family: 'Playfair Display', serif;
+        font-family: 'Space Grotesk', sans-serif;
     }
-
     .metric-label {
-        font-size: 14px;
+        font-size: 12px;
         color: #666;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 1.5px;
+        font-weight: 600;
+        margin-top: 5px;
     }
 
-    /* Custom Buttons */
+    /* Buttons */
     div.stButton > button {
-        background-color: var(--nv-forest);
+        background: linear-gradient(135deg, #183315 0%, #2d4a2b 100%);
         color: white;
-        border-radius: 4px;
         border: none;
-        padding: 0.5rem 1rem;
-        font-family: 'Inter', sans-serif;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
     }
     div.stButton > button:hover {
-        background-color: var(--nv-sage);
-        border: 1px solid var(--nv-gold);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(24, 51, 21, 0.3);
     }
     </style>
-    """
-    st.markdown(css, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-# --- 3. DATA MANAGER (Persistence Layer) ---
+# ============================================================================
+# 2. DATA MANAGER (Persistence Layer)
+# ============================================================================
+
 class DataManager:
     def __init__(self):
         self.orders_file = 'nv_orders.csv'
@@ -101,11 +110,10 @@ class DataManager:
         self.init_files()
 
     def init_files(self):
-        # Initialize Orders if not exists
+        # --- Initialize Orders CSV with Dummy Data ---
         if not os.path.exists(self.orders_file):
-            # Create dummy data for visualization
             data = {
-                'Order ID': [f'NV-{1000+i}' for i in range(5)],
+                'Order_ID': [f'NV-{1000+i}' for i in range(5)],
                 'Date': [(datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(5)],
                 'Customer': ['Alice Yilmaz', 'Bob Kaya', 'Charlie Demir', 'Diana Celik', 'Evan Ozturk'],
                 'Brand': ['Longevicals', 'Haki Heal', 'Auroraco', 'Longevicals', 'Haki Heal'],
@@ -116,15 +124,15 @@ class DataManager:
             }
             pd.DataFrame(data).to_csv(self.orders_file, index=False)
 
-        # Initialize Inventory if not exists
+        # --- Initialize Inventory CSV ---
         if not os.path.exists(self.inventory_file):
             data = {
                 'SKU': ['LNG-001', 'LNG-002', 'HKH-001', 'HKH-002', 'AUR-001'],
                 'Brand': ['Longevicals', 'Longevicals', 'Haki Heal', 'Haki Heal', 'Auroraco'],
-                'Product Name': ['NMN 500mg', 'Resveratrol', 'Matcha Set', 'Face Cream', 'Lavender Oil'],
-                'Price': [1200, 1500, 850, 600, 450],
-                'Stock Level': [50, 30, 100, 80, 200],
-                'Commission %': [15, 15, 20, 20, 25]
+                'Product_Name': ['NMN 500mg', 'Resveratrol', 'Matcha Set', 'Face Cream', 'Lavender Oil'],
+                'Price': [1200.0, 1500.0, 850.0, 600.0, 450.0],
+                'Stock_Level': [50, 30, 100, 80, 200],
+                'Commission_Pct': [15, 15, 20, 20, 25]
             }
             pd.DataFrame(data).to_csv(self.inventory_file, index=False)
 
@@ -145,31 +153,40 @@ class DataManager:
 
 db = DataManager()
 
-# --- 4. AUTHENTICATION ---
+# ============================================================================
+# 3. AUTHENTICATION
+# ============================================================================
+
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
 def login_screen():
-    st.markdown("<div style='height: 20vh;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 15vh;'></div>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        st.markdown("<h1 style='text-align: center;'>NATUVISIO</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center;'>Bridge Operating System v2.0</p>", unsafe_allow_html=True)
-        password = st.text_input("Enter Access Key", type="password")
-        if st.button("Initialize Bridge", use_container_width=True):
-            if password == "admin2025":  # Simple auth
-                st.session_state.logged_in = True
-                st.rerun()
-            else:
-                st.error("Access Denied")
+        st.markdown("<h1 style='text-align: center;'>NATUVISIO HQ</h1>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align: center; color: #666; margin-bottom: 20px;'>Bridge Operating System v9.1</div>", unsafe_allow_html=True)
+        
+        with st.form("login"):
+            password = st.text_input("Access Key", type="password")
+            submit = st.form_submit_button("INITIALIZE SYSTEM", use_container_width=True)
+            
+            if submit:
+                if password == "admin2025":
+                    st.session_state.logged_in = True
+                    st.rerun()
+                else:
+                    st.error("⛔ Access Denied")
 
-# --- 5. ADMIN SECTIONS ---
+# ============================================================================
+# 4. ADMIN SECTIONS
+# ============================================================================
 
 def section_dashboard():
-    st.title("Executive Dashboard")
+    st.title("📊 Executive Dashboard")
     df = db.load_orders()
     
-    # KPI Metrics
+    # --- KPI Cards ---
     col1, col2, col3, col4 = st.columns(4)
     total_rev = df['Amount'].sum()
     pending_count = len(df[df['Status'] == 'Pending'])
@@ -179,24 +196,24 @@ def section_dashboard():
     with col2:
         st.markdown(f'<div class="metric-card"><div class="metric-value">{len(df)}</div><div class="metric-label">Total Orders</div></div>', unsafe_allow_html=True)
     with col3:
-        st.markdown(f'<div class="metric-card"><div class="metric-value">{pending_count}</div><div class="metric-label">Pending Dispatch</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-value" style="color:#d4af37;">{pending_count}</div><div class="metric-label">Pending Dispatch</div></div>', unsafe_allow_html=True)
     with col4:
         st.markdown(f'<div class="metric-card"><div class="metric-value">3</div><div class="metric-label">Active Partners</div></div>', unsafe_allow_html=True)
 
     st.markdown("---")
     
-    # Charts
+    # --- Native Streamlit Charts (No Plotly) ---
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("Revenue by Brand")
-        rev_by_brand = df.groupby('Brand')['Amount'].sum().reset_index()
-        fig = px.pie(rev_by_brand, values='Amount', names='Brand', color_discrete_sequence=['#183315', '#2d4a2b', '#d4af37'])
-        st.plotly_chart(fig, use_container_width=True)
+        # Prepare data for bar chart
+        rev_by_brand = df.groupby('Brand')['Amount'].sum()
+        st.bar_chart(rev_by_brand, color="#183315")
     
     with c2:
-        st.subheader("Order Velocity (Last 7 Days)")
-        # Mocking time series for demo
-        st.line_chart(df.groupby('Brand')['Amount'].sum())
+        st.subheader("Order Status")
+        status_counts = df['Status'].value_counts()
+        st.bar_chart(status_counts, color="#d4af37")
 
 def section_dispatch():
     st.title("⚡ Dispatch Center (The Bridge)")
@@ -207,7 +224,7 @@ def section_dispatch():
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.markdown("### 1. Order Details")
+        st.markdown("### 1. Customer Details")
         with st.form("dispatch_form"):
             c1, c2 = st.columns(2)
             customer = c1.text_input("Customer Name")
@@ -216,26 +233,32 @@ def section_dispatch():
             
             st.markdown("### 2. Item Selection")
             brand_sel = st.selectbox("Brand Partner", inv_df['Brand'].unique())
+            
             # Filter products by brand
             avail_prods = inv_df[inv_df['Brand'] == brand_sel]
-            product_sel = st.selectbox("Product", avail_prods['Product Name'].unique())
             
-            # Get price automatically
-            unit_price = avail_prods[avail_prods['Product Name'] == product_sel]['Price'].values[0]
-            
-            qty = st.number_input("Quantity", 1, 10, 1)
-            
-            submit = st.form_submit_button("Generate Bridge Order")
+            if not avail_prods.empty:
+                product_sel = st.selectbox("Product", avail_prods['Product_Name'].unique())
+                
+                # Get price automatically
+                unit_price = avail_prods[avail_prods['Product_Name'] == product_sel]['Price'].values[0]
+                st.info(f"Unit Price: ₺{unit_price:,.2f}")
+                
+                qty = st.number_input("Quantity", 1, 10, 1)
+                submit = st.form_submit_button("GENERATE BRIDGE ORDER")
+            else:
+                st.warning("No products found for this brand.")
+                submit = False
     
     with col2:
-        st.markdown("### 3. Verification")
+        st.markdown("### 3. Bridge Action")
         if submit and customer and phone:
             total = unit_price * qty
             order_id = f"NV-{random.randint(10000,99999)}"
             
             # Save to DB
             new_order = {
-                'Order ID': order_id,
+                'Order_ID': order_id,
                 'Date': datetime.now().strftime('%Y-%m-%d'),
                 'Customer': customer,
                 'Brand': brand_sel,
@@ -246,15 +269,17 @@ def section_dispatch():
             }
             db.save_order(new_order)
             
-            st.success("Order Created in Database!")
+            st.success(f"✅ Order {order_id} Saved!")
             
             # WhatsApp Logic
             st.markdown("### 4. Notify Partner")
             msg = f"""🚨 *NATUVISIO DISPATCH*
+------------------
 Ref: {order_id}
 Item: {product_sel} (x{qty})
 Customer: {customer}
 Addr: {address}
+------------------
 Please confirm tracking."""
             
             encoded_msg = urllib.parse.quote(msg)
@@ -263,15 +288,15 @@ Please confirm tracking."""
             
             st.code(msg, language="text")
             st.markdown(f'''
-                <a href="{wa_link}" target="_blank">
-                    <button style="background-color:#25D366; color:white; border:none; padding:10px 20px; border-radius:5px; font-weight:bold; cursor:pointer; width:100%;">
-                        📲 Send via WhatsApp
-                    </button>
+                <a href="{wa_link}" target="_blank" style="text-decoration: none;">
+                    <div style="background-color:#25D366; color:white; padding:15px; border-radius:8px; text-align:center; font-weight:bold; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                        📲 CLICK TO SEND VIA WHATSAPP
+                    </div>
                 </a>
                 ''', unsafe_allow_html=True)
 
 def section_orders():
-    st.title("Order Management")
+    st.title("📦 Order Management")
     st.markdown("View and update status of active shipments.")
     
     df = db.load_orders()
@@ -283,34 +308,49 @@ def section_orders():
     with f2:
         brand_filter = st.multiselect("Filter Brand", df['Brand'].unique())
     
+    filtered_df = df.copy()
     if status_filter:
-        df = df[df['Status'].isin(status_filter)]
+        filtered_df = filtered_df[filtered_df['Status'].isin(status_filter)]
     if brand_filter:
-        df = df[df['Brand'].isin(brand_filter)]
+        filtered_df = filtered_df[filtered_df['Brand'].isin(brand_filter)]
         
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(
+        filtered_df, 
+        use_container_width=True,
+        column_config={
+            "Amount": st.column_config.NumberColumn("Amount (₺)", format="₺%d")
+        }
+    )
 
 def section_inventory():
-    st.title("Inventory & Products")
+    st.title("🧘 Inventory & SKU")
     st.markdown("Manage SKUs across the decentralized network.")
     
     df = db.load_inventory()
     
     # Editable Dataframe
-    edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True)
+    edited_df = st.data_editor(
+        df, 
+        num_rows="dynamic", 
+        use_container_width=True,
+        column_config={
+            "Price": st.column_config.NumberColumn("Price (₺)", format="₺%.2f"),
+            "Commission_Pct": st.column_config.ProgressColumn("Commission %", format="%d%%", min_value=0, max_value=100)
+        }
+    )
     
-    if st.button("Save Changes to Inventory"):
+    if st.button("💾 Save Changes to Inventory"):
         db.update_inventory(edited_df)
         st.success("Inventory updated successfully!")
 
 def section_partners():
-    st.title("Partner Network")
+    st.title("🤝 Partner Network")
     st.markdown("Manage relationships with fulfillment nodes.")
     
     partners = [
-        {"name": "Longevicals", "role": "Science Anchor", "status": "Active", "sla": "98%", "contact": "Dr. Aris"},
-        {"name": "Haki Heal", "role": "Holistic Anchor", "status": "Active", "sla": "96%", "contact": "Selin H."},
-        {"name": "Auroraco", "role": "Lifestyle Anchor", "status": "Warning", "sla": "89%", "contact": "Can K."}
+        {"name": "Longevicals", "role": "Science Anchor", "status": "Active", "sla": 98, "contact": "Dr. Aris"},
+        {"name": "Haki Heal", "role": "Holistic Anchor", "status": "Active", "sla": 96, "contact": "Selin H."},
+        {"name": "Auroraco", "role": "Lifestyle Anchor", "status": "Warning", "sla": 89, "contact": "Can K."}
     ]
     
     for p in partners:
@@ -318,59 +358,93 @@ def section_partners():
             c1, c2 = st.columns(2)
             c1.write(f"**Role:** {p['role']}")
             c1.write(f"**Contact:** {p['contact']}")
-            c2.metric("SLA Performance", p['sla'])
-            c2.progress(int(p['sla'].strip('%')))
+            
+            # Custom SLA Bar
+            c2.write("**SLA Performance**")
+            c2.progress(p['sla'] / 100)
+            c2.caption(f"{p['sla']}% On-Time Shipping Rate")
 
 def section_financials():
-    st.title("Financials & Commission")
+    st.title("💰 Financials")
     st.markdown("Track Gross Transaction Value (GTV) and Platform Revenue.")
     
     df = db.load_orders()
     inv = db.load_inventory()
     
     # Merge orders with inventory to get commission rates
-    merged = pd.merge(df, inv[['Product Name', 'Commission %']], left_on='Product', right_on='Product Name', how='left')
-    merged['Commission Revenue'] = merged['Amount'] * (merged['Commission %'] / 100)
+    # Note: Column names must match. Inventory uses 'Product_Name', Orders uses 'Product'
+    merged = pd.merge(df, inv[['Product_Name', 'Commission_Pct']], left_on='Product', right_on='Product_Name', how='left')
     
-    st.dataframe(merged[['Order ID', 'Brand', 'Amount', 'Commission %', 'Commission Revenue']], use_container_width=True)
+    # Fill NaN for safety
+    merged['Commission_Pct'] = merged['Commission_Pct'].fillna(0)
     
-    total_comm = merged['Commission Revenue'].sum()
-    st.markdown(f"### Total Platform Revenue: ₺{total_comm:,.2f}")
+    # Calculate
+    merged['Commission_Revenue'] = merged['Amount'] * (merged['Commission_Pct'] / 100)
+    
+    # Display Table
+    st.dataframe(
+        merged[['Order_ID', 'Brand', 'Amount', 'Commission_Pct', 'Commission_Revenue']], 
+        use_container_width=True,
+        column_config={
+            "Amount": st.column_config.NumberColumn("Sale Price", format="₺%.2f"),
+            "Commission_Revenue": st.column_config.NumberColumn("Bridge Revenue", format="₺%.2f"),
+            "Commission_Pct": st.column_config.NumberColumn("Comm %", format="%d%%")
+        }
+    )
+    
+    # Total
+    total_comm = merged['Commission_Revenue'].sum()
+    st.markdown("---")
+    st.markdown(f"### 💵 Total Platform Revenue: **₺{total_comm:,.2f}**")
 
 def section_crm():
-    st.title("Customer Relations (CRM)")
-    st.markdown("High-Trust client database.")
+    st.title("👥 CRM (High-Trust Clients)")
+    st.markdown("Longevity customer database.")
     
     df = db.load_orders()
     
-    # Group by customer
-    cust_df = df.groupby('Customer').agg({
-        'Order ID': 'count',
-        'Amount': 'sum',
-        'Date': 'max'
-    }).rename(columns={'Order ID': 'Total Orders', 'Amount': 'Lifetime Value', 'Date': 'Last Active'})
-    
-    st.dataframe(cust_df, use_container_width=True)
+    if not df.empty:
+        # Group by customer
+        cust_df = df.groupby('Customer').agg({
+            'Order_ID': 'count',
+            'Amount': 'sum',
+            'Date': 'max'
+        }).reset_index()
+        
+        cust_df.columns = ['Customer Name', 'Total Orders', 'Lifetime Value', 'Last Active']
+        
+        st.dataframe(
+            cust_df, 
+            use_container_width=True,
+            column_config={
+                "Lifetime Value": st.column_config.NumberColumn("LTV (₺)", format="₺%d"),
+                "Last Active": st.column_config.DateColumn("Last Purchase")
+            }
+        )
+    else:
+        st.info("No customer data yet.")
 
 def section_settings():
-    st.title("System Settings")
+    st.title("⚙️ System Settings")
     
     st.subheader("Admin Configuration")
     st.text_input("Admin Email", value="founders@natuvisio.com")
-    st.text_input("Change Password", type="password")
     
     st.subheader("Data Management")
     if st.button("Export All Data (CSV)"):
-        st.info("Exporting database...")
+        st.info("Exporting database... (Feature active in production)")
         
     st.subheader("System Logs")
-    st.code("""
-    [INFO] 2023-10-27 10:00:01 - System Startup
-    [INFO] 2023-10-27 10:05:23 - Order NV-1004 created
-    [WARN] 2023-10-27 11:20:00 - Auroraco latency > 500ms
-    """)
+    st.code(f"""
+    [INFO] {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - System Startup Successful
+    [INFO] {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Inventory DB Loaded
+    [INFO] {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Orders DB Loaded
+    """, language="text")
 
-# --- 6. MAIN APP LOGIC ---
+# ============================================================================
+# 5. MAIN ROUTING
+# ============================================================================
+
 def main():
     load_css()
     
@@ -378,10 +452,10 @@ def main():
         login_screen()
         return
 
-    # Sidebar Navigation
+    # --- Sidebar ---
     with st.sidebar:
-        st.markdown("## NATUVISIO")
-        st.markdown("*Strategic Platform Architecture*")
+        st.title("NATUVISIO")
+        st.caption("Strategic Platform Architecture")
         st.markdown("---")
         
         menu = st.radio(
@@ -403,7 +477,7 @@ def main():
             st.session_state.logged_in = False
             st.rerun()
 
-    # Routing
+    # --- Router ---
     if menu == "📊 Dashboard":
         section_dashboard()
     elif menu == "⚡ Dispatch Center":
