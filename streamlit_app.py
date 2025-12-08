@@ -1,329 +1,366 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import os
-import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import urllib.parse
 
 # ============================================================================
-# 1. SYSTEM CONFIGURATION & ASSETS
+# 1. CONFIGURATION & SETUP
 # ============================================================================
 
 st.set_page_config(
-    page_title="NATUVISIO OS",
+    page_title="NATUVISIO Admin OS",
     page_icon="🏔️",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# --- Constants ---
-CSV_FILE = "natuvisio_db.csv"
+# Constants
 ADMIN_PASS = "admin2025"
-CURRENCY = "₺"
+CSV_FILE = "dispatch_history.csv"
+PHI = 1.618  # Golden Ratio for spacing
 
-# --- Brand Metadata (Source of Truth) ---
-BRANDS = {
-    "HAKI HEAL": {"color": "#4ECDC4", "commission": 0.15, "phone": "905551234567"},
-    "AURORACO": {"color": "#FF6B6B", "commission": 0.20, "phone": "905559876543"},
-    "LONGEVICALS": {"color": "#95E1D3", "commission": 0.12, "phone": "905551122334"}
+# Spacing System (Fibonacci)
+FIBO = {
+    'xs': 8,
+    'sm': 13,
+    'md': 21,
+    'lg': 34,
+    'xl': 55
 }
 
-# --- Premium Design System ---
-def load_css():
-    st.markdown("""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;600&display=swap');
-        
-        /* BACKGROUND & MAIN */
-        .stApp {
-            background-image: linear-gradient(rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.95)), 
-                              url("https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp");
-            background-size: cover;
-            background-attachment: fixed;
-            font-family: 'Inter', sans-serif;
-            color: #ffffff;
+# Data Map
+DISPATCH_MAP = {
+    "HAKI HEAL": {
+        "phone": "601158976276",
+        "color": "#4ECDC4",
+        "products": {
+            "HAKI HEAL CREAM": {"sku": "SKU-HAKI-CRM-01", "price": 450},
+            "HAKI HEAL VUCUT LOSYONU": {"sku": "SKU-HAKI-BODY-01", "price": 380},
+            "HAKI HEAL SABUN": {"sku": "SKU-HAKI-SOAP-01", "price": 120}
         }
-        
-        /* GLASS CARDS */
-        .glass-card {
-            background: rgba(255, 255, 255, 0.04);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-            margin-bottom: 20px;
-            transition: all 0.3s ease;
+    },
+    "AURORACO": {
+        "phone": "601158976276",
+        "color": "#FF6B6B",
+        "products": {
+            "AURORACO MATCHA EZMESI": {"sku": "SKU-AUR-MATCHA", "price": 650},
+            "AURORACO KAKAO EZMESI": {"sku": "SKU-AUR-CACAO", "price": 550},
+            "AURORACO SUPER GIDA": {"sku": "SKU-AUR-SUPER", "price": 800}
         }
-        .glass-card:hover {
-            border-color: rgba(255, 255, 255, 0.2);
-            transform: translateY(-2px);
+    },
+    "LONGEVICALS": {
+        "phone": "601158976276",
+        "color": "#95E1D3",
+        "products": {
+            "LONGEVICALS DHA": {"sku": "SKU-LONG-DHA", "price": 1200},
+            "LONGEVICALS EPA": {"sku": "SKU-LONG-EPA", "price": 1150}
         }
-
-        /* GLOW ALERTS */
-        .glow-red { border-left: 3px solid #EF4444; box-shadow: 0 0 15px rgba(239, 68, 68, 0.15); }
-        .glow-green { border-left: 3px solid #10B981; box-shadow: 0 0 15px rgba(16, 185, 129, 0.15); }
-        .glow-gold { border-left: 3px solid #F59E0B; box-shadow: 0 0 15px rgba(245, 158, 11, 0.15); }
-
-        /* TYPOGRAPHY */
-        h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif !important; letter-spacing: -0.03em; }
-        
-        /* UTILS */
-        .metric-val { font-family: 'Space Grotesk'; font-size: 28px; font-weight: 700; }
-        .metric-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
-        .stButton>button { width: 100%; border-radius: 8px; font-weight: 600; text-transform: uppercase; }
-        
-        /* HIDE STREAMLIT ELEMENTS */
-        #MainMenu, header, footer { visibility: hidden; }
-        .block-container { padding-top: 2rem; }
-    </style>
-    """, unsafe_allow_html=True)
+    }
+}
 
 # ============================================================================
-# 2. DATA ENGINE (The "Stripe" Logic)
+# 2. PREMIUM ASSETS (SVG Icons)
 # ============================================================================
 
-def init_db():
-    if not os.path.exists(CSV_FILE):
-        df = pd.DataFrame(columns=[
-            "order_id", "timestamp", "brand", "customer", "phone", "address", 
-            "items", "total_val", "comm_rate", "comm_amt", "payout_amt", 
-            "status", "whatsapp_sent", "tracking", "notes"
-        ])
-        df.to_csv(CSV_FILE, index=False)
+def get_icon(name, color="#ffffff"):
+    icons = {
+        "mountain": f'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M3 20L9 8L12 14L15 6L21 20H3Z"/><path d="M9 8L7 12"/></svg>',
+        "box": f'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+        "truck": f'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>',
+        "chart": f'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+        "whatsapp": f'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>'
+    }
+    return icons.get(name, "")
 
-def get_data():
-    try:
-        return pd.read_csv(CSV_FILE)
-    except:
-        init_db()
-        return pd.read_csv(CSV_FILE)
+# ============================================================================
+# 3. DESIGN SYSTEM (CSS)
+# ============================================================================
 
-def save_data(df):
+st.markdown(f"""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+    /* BACKGROUND */
+    .stApp {{
+        background-image: linear-gradient(rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.7)), 
+                          url("https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp");
+        background-size: cover;
+        background-attachment: fixed;
+        font-family: 'Inter', sans-serif;
+    }}
+
+    /* GLASS CARD */
+    .glass-card {{
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: {FIBO['md']}px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        margin-bottom: {FIBO['sm']}px;
+    }}
+
+    /* TYPOGRAPHY */
+    h1, h2, h3 {{
+        font-family: 'Space Grotesk', sans-serif !important;
+        color: white !important;
+        letter-spacing: -0.02em;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }}
+    
+    .metric-value {{
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 28px;
+        font-weight: 700;
+        color: #fff;
+    }}
+    .metric-label {{
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: rgba(255,255,255,0.6);
+    }}
+
+    /* INPUTS */
+    .stTextInput > div > div > input, .stSelectbox > div > div > select, .stNumberInput > div > div > input {{
+        background: rgba(0,0,0,0.2) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        color: white !important;
+        border-radius: 8px !important;
+    }}
+    
+    /* BUTTONS */
+    div.stButton > button {{
+        background: linear-gradient(135deg, #4ECDC4 0%, #2980B9 100%) !important;
+        color: white !important;
+        border: none !important;
+        padding: 12px 24px !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1px !important;
+        transition: all 0.3s ease !important;
+    }}
+    div.stButton > button:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(78, 205, 196, 0.4);
+    }}
+
+    /* HIDE STREAMLIT ELEMENTS */
+    #MainMenu, header, footer {{ visibility: hidden; }}
+</style>
+""", unsafe_allow_html=True)
+
+# ============================================================================
+# 4. DATABASE & STATE
+# ============================================================================
+
+if 'admin_logged_in' not in st.session_state: st.session_state.admin_logged_in = False
+if 'cart' not in st.session_state: st.session_state.cart = []
+if 'selected_brand_lock' not in st.session_state: st.session_state.selected_brand_lock = None
+
+def load_history():
+    if os.path.exists(CSV_FILE): return pd.read_csv(CSV_FILE)
+    return pd.DataFrame(columns=["Order_ID", "Time", "Brand", "Customer", "Items", "Total_Value", "Status", "Tracking_Num"])
+
+def save_to_history(new_entry):
+    df = load_history()
+    new_df = pd.DataFrame([new_entry])
+    df = pd.concat([df, new_df], ignore_index=True)
     df.to_csv(CSV_FILE, index=False)
 
-def create_order(brand, cust, phone, addr, items, total, notes=""):
-    df = get_data()
-    
-    # Financial Logic
-    rate = BRANDS[brand]['commission']
-    comm = total * rate
-    payout = total - comm
-    
-    new_order = {
-        "order_id": f"NV-{int(time.time())}",
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "brand": brand,
-        "customer": cust,
-        "phone": phone,
-        "address": addr,
-        "items": items,
-        "total_val": total,
-        "comm_rate": rate,
-        "comm_amt": comm,
-        "payout_amt": payout,
-        "status": "New",
-        "whatsapp_sent": "NO",
-        "tracking": "",
-        "notes": notes
-    }
-    
-    df = pd.concat([df, pd.DataFrame([new_order])], ignore_index=True)
-    save_data(df)
-    return new_order['order_id']
-
 # ============================================================================
-# 3. UI COMPONENTS
+# 5. AUTHENTICATION VIEW
 # ============================================================================
 
-def card_metric(label, value, color="#ffffff"):
-    st.markdown(f"""
-    <div class="glass-card" style="padding: 15px; text-align: center; border-top: 2px solid {color};">
-        <div class="metric-lbl" style="color: {color};">{label}</div>
-        <div class="metric-val">{value}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-def render_order_card(row, is_admin=True):
-    # Dynamic Class for Glow
-    glow = "glow-red" if row['status'] == "New" else "glow-gold" if row['status'] == "Notified" else "glow-green"
+def login_screen():
+    st.markdown("<div style='height: 15vh'></div>", unsafe_allow_html=True)
     
-    with st.container():
+    c1, c2, c3 = st.columns([1, 1, 1])
+    with c2:
         st.markdown(f"""
-        <div class="glass-card {glow}">
-            <div style="display: flex; justify-content: space-between;">
-                <div>
-                    <h3 style="margin:0;">{row['order_id']}</h3>
-                    <span style="font-size: 12px; opacity: 0.6;">{row['timestamp']} • {row['brand']}</span>
-                </div>
-                <div style="text-align: right;">
-                    <div style="font-weight: 700; font-size: 20px;">{row['total_val']:,.0f} {CURRENCY}</div>
-                    <div style="font-size: 12px; color: #10B981;">Payout: {row['payout_amt']:,.0f} {CURRENCY}</div>
-                </div>
-            </div>
-            <div style="margin-top: 15px; font-size: 14px; opacity: 0.8;">
-                <strong>📦 {row['items']}</strong><br>
-                👤 {row['customer']} ({row['phone']})<br>
-                📍 {row['address']}
+        <div class="glass-card" style="text-align: center;">
+            <div style="margin-bottom: 20px;">{get_icon('mountain', '#4ECDC4')}</div>
+            <h3>NATUVISIO ADMIN</h3>
+            <p style="color: rgba(255,255,255,0.6); font-size: 12px;">SECURE LOGISTICS OS</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        pwd = st.text_input("Enter Access Key", type="password", label_visibility="collapsed")
+        
+        b1, b2 = st.columns(2)
+        with b1:
+            if st.button("UNLOCK SYSTEM", use_container_width=True):
+                if pwd == ADMIN_PASS:
+                    st.session_state.admin_logged_in = True
+                    st.rerun()
+                else:
+                    st.error("ACCESS DENIED")
+        with b2:
+            if st.button("EXIT", use_container_width=True):
+                st.switch_page("streamlit_app.py")
+
+# ============================================================================
+# 6. DASHBOARD VIEW
+# ============================================================================
+
+def dashboard_screen():
+    # --- HEADER ---
+    h1, h2 = st.columns([6, 1])
+    with h1:
+        st.markdown(f"""
+        <div style="display: flex; align-items: center; gap: 15px;">
+            {get_icon('mountain', '#4ECDC4')}
+            <div>
+                <h2 style="margin:0;">ADMIN HQ</h2>
+                <span style="font-size: 12px; color: rgba(255,255,255,0.5); letter-spacing: 1px;">LOGISTICS COMMAND CENTER</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
-
-# ============================================================================
-# 4. PANELS (Views)
-# ============================================================================
-
-def founder_hq():
-    st.markdown("## 🏔️ Founder Command Center")
-    df = get_data()
-    
-    # --- METRICS ---
-    total_rev = df['total_val'].sum() if not df.empty else 0
-    total_comm = df['comm_amt'].sum() if not df.empty else 0
-    pending = len(df[df['status'] == "New"])
-    
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: card_metric("Total Revenue", f"{total_rev:,.0f} {CURRENCY}", "#4ECDC4")
-    with c2: card_metric("Net Commission", f"{total_comm:,.0f} {CURRENCY}", "#FF6B6B")
-    with c3: card_metric("Action Needed", pending, "#EF4444")
-    with c4: card_metric("Total Orders", len(df), "#95E1D3")
-    
-    # --- TABS ---
-    t1, t2, t3 = st.tabs(["🔥 OPERATIONS", "📝 CREATE ORDER", "📊 DATA"])
-    
-    # Operations Tab
-    with t1:
-        if pending > 0:
-            st.error(f"🚨 {pending} Orders require immediate dispatch notification!")
-        
-        # Display Active Orders
-        active_orders = df[df['status'].isin(["New", "Notified"])]
-        if active_orders.empty:
-            st.success("✅ All systems clear. No pending orders.")
-        else:
-            for idx, row in active_orders.iterrows():
-                render_order_card(row)
-                
-                c_act1, c_act2 = st.columns([1, 4])
-                
-                # WhatsApp Logic
-                phone_clean = BRANDS[row['brand']]['phone']
-                msg = urllib.parse.quote(f"🚨 NEW ORDER: {row['order_id']}\n{row['items']}\nShip to: {row['address']}")
-                wa_link = f"https://wa.me/{phone_clean}?text={msg}"
-                
-                with c_act1:
-                    st.link_button("📲 WhatsApp", wa_link)
-                with c_act2:
-                    if row['status'] == "New":
-                        if st.button("✅ Mark Notified", key=f"ntf_{row['order_id']}"):
-                            df.at[idx, 'status'] = "Notified"
-                            save_data(df)
-                            st.rerun()
-                    elif row['status'] == "Notified":
-                        tracking = st.text_input("Tracking #", key=f"trk_{row['order_id']}")
-                        if st.button("🚚 Dispatch", key=f"dsp_{row['order_id']}"):
-                            if tracking:
-                                df.at[idx, 'status'] = "Dispatched"
-                                df.at[idx, 'tracking'] = tracking
-                                save_data(df)
-                                st.rerun()
-
-    # Create Order Tab
-    with t2:
-        with st.form("new_order"):
-            c_f1, c_f2 = st.columns(2)
-            with c_f1:
-                brand = st.selectbox("Brand", list(BRANDS.keys()))
-                cust = st.text_input("Customer Name")
-                phone = st.text_input("Phone")
-            with c_f2:
-                items = st.text_input("Items (e.g. 2x Matcha)")
-                total = st.number_input("Total Value", min_value=0.0)
-                addr = st.text_area("Address")
-            
-            if st.form_submit_button("🚀 Launch Order"):
-                create_order(brand, cust, phone, addr, items, total)
-                st.success("Order Created!")
-                time.sleep(1)
-                st.rerun()
-
-    # Data Tab
-    with t3:
-        st.dataframe(df, use_container_width=True)
-
-def partner_portal(brand_name):
-    st.markdown(f"## 📦 {brand_name} Partner Portal")
-    df = get_data()
-    my_orders = df[df['brand'] == brand_name]
-    
-    # Financials
-    my_rev = my_orders['payout_amt'].sum() if not my_orders.empty else 0
-    to_ship = len(my_orders[my_orders['status'] == "Notified"])
-    
-    c1, c2 = st.columns(2)
-    with c1: card_metric("My Revenue", f"{my_rev:,.0f} {CURRENCY}", BRANDS[brand_name]['color'])
-    with c2: card_metric("Pending Ship", to_ship, "#EF4444")
-    
-    st.markdown("### 📋 My Orders")
-    if my_orders.empty:
-        st.info("No orders yet.")
-    else:
-        st.dataframe(my_orders[['order_id', 'timestamp', 'items', 'status', 'tracking']], use_container_width=True)
-
-# ============================================================================
-# 5. MAIN APP ROUTER
-# ============================================================================
-
-def main():
-    load_css()
-    init_db()
-    
-    # --- LOGIN SCREEN ---
-    if 'user_role' not in st.session_state:
-        st.markdown("<div style='height: 20vh'></div>", unsafe_allow_html=True)
-        c1, c2, c3 = st.columns([1,1,1])
-        with c2:
-            st.markdown("""
-            <div class="glass-card" style="text-align: center;">
-                <div style="font-size: 40px;">🏔️</div>
-                <h2>NATUVISIO OS</h2>
-                <p style="opacity: 0.6;">Secure Logistics Access</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            pwd = st.text_input("Enter Passkey", type="password")
-            
-            if st.button("AUTHENTICATE"):
-                if pwd == ADMIN_PASS:
-                    st.session_state.user_role = "ADMIN"
-                    st.rerun()
-                elif pwd == "aurora123":
-                    st.session_state.user_role = "AURORACO"
-                    st.rerun()
-                elif pwd == "haki123":
-                    st.session_state.user_role = "HAKI HEAL"
-                    st.rerun()
-                elif pwd == "long123":
-                    st.session_state.user_role = "LONGEVICALS"
-                    st.rerun()
-                else:
-                    st.error("Access Denied")
-        return
-
-    # --- LOGGED IN VIEW ---
-    # Sidebar
-    with st.sidebar:
-        st.markdown(f"### 👤 {st.session_state.user_role}")
+    with h2:
         if st.button("LOGOUT"):
-            del st.session_state.user_role
-            st.rerun()
-            
-    # Route
-    if st.session_state.user_role == "ADMIN":
-        founder_hq()
-    else:
-        partner_portal(st.session_state.user_role)
+            st.session_state.admin_logged_in = False
+            st.switch_page("streamlit_app.py")
 
-if __name__ == "__main__":
-    main()
+    st.markdown(f"<div style='height: {FIBO['sm']}px'></div>", unsafe_allow_html=True)
+
+    # --- TABS ---
+    tab_dispatch, tab_orders, tab_analytics = st.tabs(["🚀 NEW DISPATCH", "📦 ACTIVE ORDERS", "📈 ANALYTICS"])
+
+    # --- TAB 1: DISPATCH (WITH CART) ---
+    with tab_dispatch:
+        col_L, col_R = st.columns([1.618, 1]) # Golden Ratio Columns
+        
+        with col_L:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            st.markdown("#### 👤 Customer Identity")
+            c_name, c_phone = st.columns(2)
+            with c_name: cust_name = st.text_input("Full Name")
+            with c_phone: cust_phone = st.text_input("Phone (905...)")
+            cust_addr = st.text_area("Delivery Address")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            st.markdown("#### 🛒 Inventory Selection")
+            
+            # Brand Lock Logic
+            if st.session_state.cart:
+                st.info(f"🔒 Locked to: {st.session_state.selected_brand_lock}")
+                active_brand = st.session_state.selected_brand_lock
+            else:
+                active_brand = st.selectbox("Select Partner", list(DISPATCH_MAP.keys()))
+
+            brand_data = DISPATCH_MAP[active_brand]
+            
+            cp, cq = st.columns([3, 1])
+            with cp: prod = st.selectbox("Product", list(brand_data["products"].keys()))
+            with cq: qty = st.number_input("Qty", 1, value=1)
+            
+            details = brand_data["products"][prod]
+            
+            if st.button("➕ ADD TO CART", use_container_width=True):
+                st.session_state.cart.append({
+                    "brand": active_brand,
+                    "product": prod,
+                    "sku": details['sku'],
+                    "qty": qty,
+                    "subtotal": details['price'] * qty
+                })
+                st.session_state.selected_brand_lock = active_brand
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with col_R:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            st.markdown("#### 📦 Shipment Manifest")
+            
+            if st.session_state.cart:
+                df_cart = pd.DataFrame(st.session_state.cart)
+                st.dataframe(df_cart[["product", "qty", "subtotal"]], use_container_width=True, hide_index=True)
+                
+                total = df_cart['subtotal'].sum()
+                st.markdown(f"<div class='metric-value' style='text-align: right;'>{total:,.0f} ₺</div>", unsafe_allow_html=True)
+                
+                priority = st.selectbox("Priority Level", ["Standard", "🚨 URGENT", "🧊 Cold Chain"])
+                
+                if st.button("⚡ FLASH DISPATCH", type="primary", use_container_width=True):
+                    if cust_name and cust_phone:
+                        oid = f"NV-{datetime.now().strftime('%m%d%H%M')}"
+                        items_txt = "\n".join([f"• {i['product']} (x{i['qty']})" for i in st.session_state.cart])
+                        
+                        # Save
+                        save_to_history({
+                            "Order_ID": oid,
+                            "Time": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                            "Brand": active_brand,
+                            "Customer": cust_name,
+                            "Items": items_txt.replace("\n", ", "),
+                            "Total_Value": total,
+                            "Status": "Pending",
+                            "Tracking_Num": ""
+                        })
+                        
+                        # WhatsApp Link
+                        clean_phone = brand_data['phone'].replace("+", "").replace(" ", "")
+                        msg = f"*{priority} DISPATCH*\n🆔 {oid}\n👤 {cust_name}\n📞 {cust_phone}\n🏠 {cust_addr}\n\n📦 CONTENTS:\n{items_txt}\n\n⚠️ Please confirm tracking."
+                        url = f"https://wa.me/{clean_phone}?text={urllib.parse.quote(msg)}"
+                        
+                        st.success("✅ Order Logged!")
+                        st.markdown(f"""
+                        <a href="{url}" target="_blank" style="text-decoration:none;">
+                            <div style="background:#25D366;color:white;padding:15px;border-radius:8px;text-align:center;font-weight:bold;">
+                                📲 OPEN WHATSAPP
+                            </div>
+                        </a>
+                        """, unsafe_allow_html=True)
+                        
+                        st.session_state.cart = []
+                        st.session_state.selected_brand_lock = None
+                    else:
+                        st.error("Missing Customer Details")
+                
+                if st.button("🗑️ Clear Cart"):
+                    st.session_state.cart = []
+                    st.session_state.selected_brand_lock = None
+                    st.rerun()
+            else:
+                st.info("Cart is empty.")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- TAB 2: ACTIVE ORDERS ---
+    with tab_orders:
+        df = load_history()
+        if not df.empty:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            st.dataframe(df.sort_values("Time", ascending=False), use_container_width=True, hide_index=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.info("No dispatch history found.")
+
+    # --- TAB 3: ANALYTICS ---
+    with tab_analytics:
+        df = load_history()
+        if not df.empty:
+            m1, m2, m3 = st.columns(3)
+            with m1:
+                st.markdown(f"""<div class="glass-card"><div class="metric-value">{len(df)}</div><div class="metric-label">TOTAL ORDERS</div></div>""", unsafe_allow_html=True)
+            with m2:
+                rev = df['Total_Value'].sum()
+                st.markdown(f"""<div class="glass-card"><div class="metric-value">{rev:,.0f} ₺</div><div class="metric-label">REVENUE</div></div>""", unsafe_allow_html=True)
+            with m3:
+                pending = len(df[df['Status']=='Pending'])
+                st.markdown(f"""<div class="glass-card"><div class="metric-value">{pending}</div><div class="metric-label">PENDING</div></div>""", unsafe_allow_html=True)
+            
+            st.bar_chart(df['Brand'].value_counts())
+
+# ============================================================================
+# 7. MAIN EXECUTION
+# ============================================================================
+
+if not st.session_state.admin_logged_in:
+    login_screen()
+else:
+    dashboard_screen()
+
+
