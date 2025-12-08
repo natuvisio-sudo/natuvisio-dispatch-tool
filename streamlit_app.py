@@ -1,878 +1,1194 @@
+"""
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  NATUVISIO PARTNER PANEL v7.0                                                 ║
+║  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ║
+║  A Premium Wellness Partner Operating System                                  ║
+║  Design Language: Scandinavian Zen meets Tokyo Minimalism                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+"""
+
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import os
-import io
-import time
 from datetime import datetime, timedelta
-import urllib.parse
-import plotly.express as px
+import hashlib
+import time
 
-# ============================================================================
-# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V6.0 (LIQUID GRADIENT EDITION)
-# ============================================================================
-
-# --- CONFIG ---
-ADMIN_PASS = "admin2025"
-CSV_ORDERS = "orders_complete.csv"
-CSV_PAYMENTS = "brand_payments.csv"
-FIBO = {'xs': 8, 'sm': 13, 'md': 21, 'lg': 34, 'xl': 55}
-PHI = 1.618
-
-BRANDS = {
-    "HAKI HEAL": {
-        "phone": "601158976276",
-        "color": "#4ECDC4",
-        "commission": 0.15,
-        "iban": "TR90 0006 1000 0000 1234 5678 90",
-        "account_name": "Haki Heal Ltd. Şti.",
-        "products": {
-            "HAKI HEAL KREM": {"sku": "SKU-HAKI-CRM-01", "price": 450},
-            "HAKI HEAL VÜCUT LOSYONU": {"sku": "SKU-HAKI-BODY-01", "price": 380},
-        }
-    },
-    "AURORACO": {
-        "phone": "601158976276",
-        "color": "#FF6B6B",
-        "commission": 0.20,
-        "iban": "TR90 0006 2000 0000 9876 5432 10",
-        "account_name": "Auroraco Gıda A.Ş.",
-        "products": {
-            "AURORACO MATCHA EZMESİ": {"sku": "SKU-AUR-MATCHA", "price": 650},
-            "AURORACO KAKAO EZMESİ": {"sku": "SKU-AUR-CACAO", "price": 550},
-        }
-    },
-    "LONGEVICALS": {
-        "phone": "601158976276",
-        "color": "#95E1D3",
-        "commission": 0.12,
-        "iban": "TR90 0001 5000 0000 1122 3344 55",
-        "account_name": "Longevicals Sağlık Ürünleri",
-        "products": {
-            "LONGEVICALS DHA": {"sku": "SKU-LONG-DHA", "price": 1200},
-            "LONGEVICALS EPA": {"sku": "SKU-LONG-EPA", "price": 1150}
-        }
-    }
-}
-
-# ============================================================================
-# 2. CSS & BACKGROUND INJECTION
-# ============================================================================
-
-def inject_liquid_background():
-    # Placeholder for the complex WebGL/Three.js code
-    # Actual implementation is hidden for brevity but the structure is correct
-    html_code = """
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><style>body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; } canvas { display: block; }</style></head>
-<body>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-// --- CORE WEBGL LOGIC FROM INPUT IS REPLICATED HERE ---
-// (The full TouchTexture and GradientBackground classes are omitted for output brevity but assumed functional)
-class TouchTexture { constructor() { this.size = 64; this.width = this.height = this.size; this.maxAge = 64; this.radius = 0.25 * this.size; this.speed = 1 / this.maxAge; this.trail = []; this.last = null; this.initTexture(); } initTexture() { this.canvas = document.createElement("canvas"); this.canvas.width = this.width; this.canvas.height = this.height; this.ctx = this.canvas.getContext("2d"); this.ctx.fillStyle = "black"; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height); this.texture = new THREE.Texture(this.canvas); } update() { this.clear(); let speed = this.speed; for (let i = this.trail.length - 1; i >= 0; i--) { const point = this.trail[i]; let f = point.force * speed * (1 - point.age / this.maxAge); point.x += point.vx * f; point.y += point.vy * f; point.age++; if (point.age > this.maxAge) { this.trail.splice(i, 1); } else { this.drawPoint(point); } } this.texture.needsUpdate = true; } clear() { this.ctx.fillStyle = "black"; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height); } addTouch(point) { let force = 0; let vx = 0; let vy = 0; const last = this.last; if (last) { const dx = point.x - last.x; const dy = point.y - last.y; if (dx === 0 && dy === 0) return; const dd = dx * dx + dy * dy; let d = Math.sqrt(dd); vx = dx / d; vy = dy / d; force = Math.min(dd * 20000, 2.0); } this.last = { x: point.x, y: point.y }; this.trail.push({ x: point.x, y: point.y, age: 0, force, vx, vy }); } drawPoint(point) { const pos = { x: point.x * this.width, y: (1 - point.y) * this.height }; let intensity = 1; if (point.age < this.maxAge * 0.3) { intensity = Math.sin((point.age / (this.maxAge * 0.3)) * (Math.PI / 2)); } else { const t = 1 - (point.age - this.maxAge * 0.3) / (this.maxAge * 0.7); intensity = -t * (t - 2); } intensity *= point.force; const radius = this.radius; let color = `${((point.vx + 1) / 2) * 255}, ${((point.vy + 1) / 2) * 255}, ${intensity * 255}`; let offset = this.size * 5; this.ctx.shadowOffsetX = offset; this.ctx.shadowOffsetY = offset; this.ctx.shadowBlur = radius * 1; this.ctx.shadowColor = `rgba(${color},${0.2 * intensity})`; this.ctx.beginPath(); this.ctx.fillStyle = "rgba(255,0,0,1)"; this.ctx.arc(pos.x - offset, pos.y - offset, radius, 0, Math.PI * 2); this.ctx.fill(); } }
-class GradientBackground { constructor(sceneManager) { this.sceneManager = sceneManager; this.mesh = null; this.uniforms = { uTime: { value: 0 }, uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }, uColor1: { value: new THREE.Vector3(0.945, 0.353, 0.133) }, uColor2: { value: new THREE.Vector3(0.039, 0.055, 0.153) }, uColor3: { value: new THREE.Vector3(0.945, 0.353, 0.133) }, uColor4: { value: new THREE.Vector3(0.039, 0.055, 0.153) }, uColor5: { value: new THREE.Vector3(0.945, 0.353, 0.133) }, uColor6: { value: new THREE.Vector3(0.039, 0.055, 0.153) }, uSpeed: { value: 1.2 }, uIntensity: { value: 1.8 }, uTouchTexture: { value: null }, uGrainIntensity: { value: 0.08 }, uZoom: { value: 1.0 }, uDarkNavy: { value: new THREE.Vector3(0.039, 0.055, 0.153) }, uGradientSize: { value: 1.0 }, uGradientCount: { value: 6.0 }, uColor1Weight: { value: 1.0 }, uColor2Weight: { value: 1.0 } }; } init() { const viewSize = this.sceneManager.getViewSize(); const geometry = new THREE.PlaneGeometry(viewSize.width, viewSize.height, 1, 1); const material = new THREE.ShaderMaterial({ uniforms: this.uniforms, vertexShader: `varying vec2 vUv;void main(){vec3 pos=position.xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.);vUv=uv;}`, fragmentShader: `uniform float uTime;uniform vec2 uResolution;uniform vec3 uColor1;uniform vec3 uColor2;uniform vec3 uColor3;uniform vec3 uColor4;uniform vec3 uColor5;uniform vec3 uColor6;uniform float uSpeed;uniform float uIntensity;uniform sampler2D uTouchTexture;uniform float uGrainIntensity;uniform float uZoom;uniform vec3 uDarkNavy;uniform float uGradientSize;uniform float uGradientCount;uniform float uColor1Weight;uniform float uColor2Weight;varying vec2 vUv;#define PI 3.14159265359 float grain(vec2 uv,float time){vec2 grainUv=uv*uResolution*0.5;float grainValue=fract(sin(dot(grainUv+time,vec2(12.9898,78.233)))*43758.5453);return grainValue*2.0-1.0;}vec3 getGradientColor(vec2 uv,float time){float gradientRadius=uGradientSize;vec2 center1=vec2(0.5+sin(time*uSpeed*0.4)*0.4,0.5+cos(time*uSpeed*0.5)*0.4);vec2 center2=vec2(0.5+cos(time*uSpeed*0.6)*0.5,0.5+sin(time*uSpeed*0.45)*0.5);vec2 center3=vec2(0.5+sin(time*uSpeed*0.35)*0.45,0.5+cos(time*uSpeed*0.55)*0.45);vec2 center4=vec2(0.5+cos(time*uSpeed*0.5)*0.4,0.5+sin(time*uSpeed*0.4)*0.4);vec2 center5=vec2(0.5+sin(time*uSpeed*0.7)*0.35,0.5+cos(time*uSpeed*0.6)*0.35);vec2 center6=vec2(0.5+cos(time*uSpeed*0.45)*0.5,0.5+sin(time*uSpeed*0.65)*0.5);float dist1=length(uv-center1);float dist2=length(uv-center2);float dist3=length(uv-center3);float dist4=length(uv-center4);float dist5=length(uv-center5);float dist6=length(uv-center6);float influence1=1.0-smoothstep(0.0,gradientRadius,dist1);float influence2=1.0-smoothstep(0.0,gradientRadius,dist2);float influence3=1.0-smoothstep(0.0,gradientRadius,dist3);float influence4=1.0-smoothstep(0.0,gradientRadius,dist4);float influence5=1.0-smoothstep(0.0,gradientRadius,dist5);float influence6=1.0-smoothstep(0.0,gradientRadius,dist6);vec2 rotatedUv1=uv-0.5;float angle1=time*uSpeed*0.15;rotatedUv1=vec2(rotatedUv1.x*cos(angle1)-rotatedUv1.y*sin(angle1),rotatedUv1.x*sin(angle1)+rotatedUv1.y*cos(angle1));rotatedUv1+=0.5;vec2 rotatedUv2=uv-0.5;float angle2=-time*uSpeed*0.12;rotatedUv2=vec2(rotatedUv2.x*cos(angle2)-rotatedUv2.y*sin(angle2),rotatedUv2.x*sin(angle2)+rotatedUv2.y*cos(angle2));rotatedUv2+=0.5;float radialGradient1=length(rotatedUv1-0.5);float radialGradient2=length(rotatedUv2-0.5);float radialInfluence1=1.0-smoothstep(0.0,0.8,radialGradient1);float radialInfluence2=1.0-smoothstep(0.0,0.8,radialGradient2);vec3 color=vec3(0.0);color+=uColor1*influence1*(0.55+0.45*sin(time*uSpeed))*uColor1Weight;color+=uColor2*influence2*(0.55+0.45*cos(time*uSpeed*1.2))*uColor2Weight;color+=uColor3*influence3*(0.55+0.45*sin(time*uSpeed*0.8))*uColor1Weight;color+=uColor4*influence4*(0.55+0.45*cos(time*uSpeed*1.3))*uColor2Weight;color+=uColor5*influence5*(0.55+0.45*sin(time*uSpeed*1.1))*uColor1Weight;color+=uColor6*influence6*(0.55+0.45*cos(time*uSpeed*0.9))*uColor2Weight;color+=mix(uColor1,uColor3,radialInfluence1)*0.45*uColor1Weight;color+=mix(uColor2,uColor4,radialInfluence2)*0.4*uColor2Weight;color=clamp(color,vec3(0.0),vec3(1.0))*uIntensity;float luminance=dot(color,vec3(0.299,0.587,0.114));color=mix(vec3(luminance),color,1.35);color=pow(color,vec3(0.92));float brightness1=length(color);float mixFactor1=max(brightness1*1.2,0.15);color=mix(uDarkNavy,color,mixFactor1);float maxBrightness=1.0;float brightness=length(color);if(brightness>maxBrightness){color=color*(maxBrightness/brightness);}return color;}void main(){vec2 uv=vUv;vec4 touchTex=texture2D(uTouchTexture,uv);float vx=-(touchTex.r*2.0-1.0);float vy=-(touchTex.g*2.0-1.0);float intensity=touchTex.b;uv.x+=vx*0.8*intensity;uv.y+=vy*0.8*intensity;vec2 center=vec2(0.5);float dist=length(uv-center);float ripple=sin(dist*20.0-uTime*3.0)*0.04*intensity;float wave=sin(dist*15.0-uTime*2.0)*0.03*intensity;uv+=vec2(ripple+wave);vec3 color=getGradientColor(uv,uTime);float grainValue=grain(uv,uTime);color+=grainValue*uGrainIntensity;float timeShift=uTime*0.5;color.r+=sin(timeShift)*0.02;color.g+=cos(timeShift*1.4)*0.02;color.b+=sin(timeShift*1.2)*0.02;float brightness2=length(color);float mixFactor2=max(brightness2*1.2,0.15);color=mix(uDarkNavy,color,mixFactor2);color=clamp(color,vec3(0.0),vec3(1.0));float maxBrightness=1.0;float brightness=length(color);if(brightness>maxBrightness){color=color*(maxBrightness/brightness);}gl_FragColor=vec4(color,1.0);}`
-        });
-        this.mesh = new THREE.Mesh(geometry, material);
-        this.mesh.position.z = 0;
-        this.sceneManager.scene.add(this.mesh);
-      }
-      update(delta) { if (this.uniforms.uTime) this.uniforms.uTime.value += delta; }
-      onResize(width, height) {
-        const viewSize = this.sceneManager.getViewSize();
-        if (this.mesh) { this.mesh.geometry.dispose(); this.mesh.geometry = new THREE.PlaneGeometry(viewSize.width, viewSize.height, 1, 1); }
-        if (this.uniforms.uResolution) this.uniforms.uResolution.value.set(width, height);
-      }
-    }
-    class App {
-      constructor() {
-        this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", alpha: false, stencil: false, depth: false });
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        document.body.appendChild(this.renderer.domElement);
-        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000);
-        this.camera.position.z = 50;
-        this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x0a0e27);
-        this.clock = new THREE.Clock();
-        this.touchTexture = new TouchTexture();
-        this.gradientBackground = new GradientBackground(this);
-        this.gradientBackground.uniforms.uTouchTexture.value = this.touchTexture.texture;
-        this.init();
-      }
-      init() {
-        this.gradientBackground.init();
-        this.tick();
-        window.addEventListener("resize", () => this.onResize());
-        window.addEventListener("mousemove", (ev) => this.onMouseMove(ev));
-        window.addEventListener("touchmove", (ev) => this.onTouchMove(ev));
-      }
-      onTouchMove(ev) { const touch = ev.touches[0]; this.onMouseMove({ clientX: touch.clientX, clientY: touch.clientY }); }
-      onMouseMove(ev) {
-        this.mouse = { x: ev.clientX / window.innerWidth, y: 1 - ev.clientY / window.innerHeight };
-        this.touchTexture.addTouch(this.mouse);
-      }
-      getViewSize() {
-        const fovInRadians = (this.camera.fov * Math.PI) / 180;
-        const height = Math.abs(this.camera.position.z * Math.tan(fovInRadians / 2) * 2);
-        return { width: height * this.camera.aspect, height };
-      }
-      update(delta) {
-        this.touchTexture.update();
-        this.gradientBackground.update(delta);
-      }
-      render() {
-        const delta = this.clock.getDelta();
-        const clampedDelta = Math.min(delta, 0.1);
-        this.renderer.render(this.scene, this.camera);
-        this.update(clampedDelta);
-      }
-      tick() {
-        this.render();
-        requestAnimationFrame(() => this.tick());
-      }
-      onResize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.gradientBackground.onResize(window.innerWidth, window.innerHeight);
-      }
-    }
-    new App();
-</script>
-</body>
-</html>
-    """
-    
-    # Inject full screen background
-    components.html(html_code, height=0, width=0)
-    
-    # CSS to make the iframe cover the screen behind everything
-    st.markdown("""
-    <style>
-        iframe {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: -1;
-            border: none;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
-def load_ui_css():
-    st.markdown(f"""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
-        
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        
-        /* Make Streamlit background transparent so WebGL shows through */
-        .stApp {{
-            background: transparent !important;
-            font-family: 'Inter', sans-serif;
-            color: #ffffff;
-        }}
-        
-        /* Transparent Glass Cards for Retina Clarity */
-        .glass-card {{
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: {FIBO['sm']}px;
-            padding: {FIBO['md']}px;
-            margin-bottom: {FIBO['sm']}px;
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-        }}
-        
-        .glass-card:hover {{
-            transform: translateY(-2px);
-            border-color: rgba(255, 255, 255, 0.2);
-            background: rgba(255, 255, 255, 0.08);
-        }}
-        
-        /* Typography */
-        .metric-value {{
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 24px;
-            font-weight: 700;
-            color: #ffffff;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }}
-        
-        .metric-label {{
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: rgba(255,255,255,0.7);
-            font-weight: 600;
-        }}
-        
-        h1, h2, h3, h4, h5, h6 {{
-            font-family: 'Space Grotesk', sans-serif !important;
-            color: #ffffff !important;
-            font-weight: 700 !important;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        }}
-        
-        /* Input Fields Transparency */
-        .stTextInput > div > div > input,
-        .stTextArea > div > div > textarea,
-        .stSelectbox > div > div > select,
-        .stNumberInput > div > div > input {{
-            background: rgba(0,0,0,0.3) !important;
-            border: 1px solid rgba(255,255,255,0.15) !important;
-            color: #ffffff !important;
-            border-radius: 8px !important;
-            backdrop-filter: blur(10px);
-        }}
-        
-        /* Buttons */
-        div.stButton > button {{
-            background: linear-gradient(135deg, rgba(78, 205, 196, 0.8), rgba(68, 160, 141, 0.8)) !important;
-            color: white !important;
-            border: 1px solid rgba(255,255,255,0.2) !important;
-            backdrop-filter: blur(4px);
-            padding: {FIBO['sm']}px {FIBO['md']}px !important;
-            border-radius: 8px !important;
-            font-weight: 600 !important;
-            text-transform: uppercase !important;
-            transition: all 0.3s ease !important;
-        }}
-        
-        div.stButton > button:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 0 15px rgba(78, 205, 196, 0.4);
-        }}
-        
-        #MainMenu, header, footer {{ visibility: hidden; }}
-        
-        /* Scrollbar */
-        ::-webkit-scrollbar {{ width: 6px; }}
-        ::-webkit-scrollbar-track {{ background: transparent; }}
-        ::-webkit-scrollbar-thumb {{ background: rgba(255,255,255,0.2); border-radius: 3px; }}
-    </style>
-    """, unsafe_allow_html=True)
-
-# ============================================================================
-# 3. ICON SET
-# ============================================================================
-
-def get_icon(name, color="#ffffff", size=24):
-    icons = {
-        "mountain": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M3 20L9 8L12 14L15 6L21 20H3Z"/></svg>',
-        "alert": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>',
-        "check": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="3"><path d="M20 6L9 17L4 12"/></svg>',
-        "bill": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6" y2="8"/><line x1="10" y1="8" x2="18" y2="8"/><line x1="6" y1="12" x2="6" y2="12"/><line x1="10" y1="12" x2="18" y2="12"/><line x1="6" y1="16" x2="6" y2="16"/><line x1="10" y1="16" x2="18" y2="16"/></svg>',
-        "money": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
-        "clock": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-        "activity": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>'
-    }
-    return icons.get(name, "")
-
-# ============================================================================
-# 4. DATABASE MANAGEMENT (CSV)
-# ============================================================================
-
-def init_databases():
-    if 'initialized' not in st.session_state:
-        # Define all CSV files and their columns
-        files = {
-            CSV_ORDERS: ["Order_ID", "Time", "Brand", "Customer", "Phone", "Address", "Items", "Total_Value", "Commission_Rate", "Commission_Amt", "Brand_Payout", "Status", "WhatsApp_Sent", "Tracking_Num", "Priority", "Notes", "Created_By", "Last_Modified"],
-            CSV_PAYMENTS: ["Payment_ID", "Time", "Brand", "Amount", "Method", "Reference", "Status", "Proof_File", "Notes", "Fatura_Sent", "Fatura_Date", "Fatura_Explanation"]
-        }
-        
-        # Create files if they don't exist
-        for file_name, columns in files.items():
-            if not os.path.exists(file_name):
-                pd.DataFrame(columns=columns).to_csv(file_name, index=False)
-                
-        st.session_state.initialized = True
-
-def load_data(file_name):
-    try: return pd.read_csv(file_name)
-    except: return pd.DataFrame()
-
-def save_data(df, file_name, new_data=None):
-    try:
-        if new_data:
-            df = load_data(file_name)
-            df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
-        
-        df.to_csv(file_name, index=False)
-        return True
-    except Exception as e:
-        st.error(f"Kayıt/Güncelleme hatası: {e}")
-        return False
-
-# Shorthand functions for clarity
-def load_orders(): return load_data(CSV_ORDERS)
-def load_payments(): return load_data(CSV_PAYMENTS)
-def update_orders(df): return save_data(df, CSV_ORDERS)
-def update_payments(df): return save_data(df, CSV_PAYMENTS)
-def save_order(order_data): return save_data(pd.DataFrame(), CSV_ORDERS, new_data=order_data)
-def save_payment(payment_data): return save_data(pd.DataFrame(), CSV_PAYMENTS, new_data=payment_data)
-
-# ============================================================================
-# 5. SESSION MANAGEMENT
-# ============================================================================
-
-if 'admin_logged_in' not in st.session_state:
-    st.session_state.admin_logged_in = False
-if 'cart' not in st.session_state:
-    st.session_state.cart = []
-if 'brand_lock' not in st.session_state:
-    st.session_state.brand_lock = None
-
-# ============================================================================
-# 6. LOGIN SCREEN
-# ============================================================================
-
-def login_screen():
-    inject_liquid_background()
-    load_ui_css()
-    st.markdown("<div style='height: 15vh'></div>", unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        st.markdown(f"""
-        <div class="glass-card" style="text-align: center; padding: {FIBO['xl']}px;">
-            <div style="font-size: {FIBO['xl']}px; margin-bottom: {FIBO['sm']}px;">🏔️</div>
-            <h2>NATUVISIO ADMIN</h2>
-            <p style="opacity: 0.6; font-size: 12px;">LIQUID EDITION v6.0</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        password = st.text_input("Erişim Şifresi", type="password", key="login")
-        
-        if st.button("🔓 GİRİŞ YAP", use_container_width=True):
-            if password == ADMIN_PASS:
-                st.session_state.admin_logged_in = True
-                st.rerun()
-            else:
-                st.error("❌ Hatalı şifre")
-
-# ============================================================================
-# 7. MAIN DASHBOARD (YÖNETİM MERKEZİ)
-# ============================================================================
-
-def dashboard():
-    init_databases()
-    inject_liquid_background()
-    load_ui_css()
-    
-    col_h1, col_h2, col_h3 = st.columns([6, 1, 1])
-    with col_h1:
-        st.markdown(f"""
-        <div style="display: flex; align-items: center; gap: {FIBO['sm']}px;">
-            {get_icon('mountain', '#4ECDC4', FIBO['lg'])}
-            <div>
-                <h1 style="margin:0;">YÖNETİM MERKEZİ</h1>
-                <span style="font-size: 11px; opacity: 0.6;">TAM YETKİLİ ERİŞİM</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col_h3:
-        if st.button("🚪 Çıkış"):
-            st.session_state.admin_logged_in = False
-            st.session_state.cart = []
-            st.session_state.brand_lock = None
-            st.rerun()
-            
-    st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
-    
-    df = load_orders()
-    
-    # --- KEY METRICS ---
-    total_rev = df['Total_Value'].sum() if not df.empty else 0
-    total_comm = df['Commission_Amt'].sum() if not df.empty else 0
-    pending_count = len(df[df['Status'] == 'Pending'])
-    
-    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-    with col_m1:
-        st.markdown(f"""<div class="glass-card" style="text-align:center;"><div class="metric-label">TOPLAM CİRO</div><div class="metric-value">{total_rev:,.0f}₺</div></div>""", unsafe_allow_html=True)
-    with col_m2:
-        st.markdown(f"""<div class="glass-card" style="text-align:center;"><div class="metric-label">NET KOMİSYON</div><div class="metric-value" style="color:#4ECDC4;">{total_comm:,.0f}₺</div></div>""", unsafe_allow_html=True)
-    with col_m3:
-        st.markdown(f"""<div class="glass-card" style="text-align:center;"><div class="metric-label">BEKLEYEN İŞLEM</div><div class="metric-value" style="color:#F59E0B;">{pending_count}</div></div>""", unsafe_allow_html=True)
-    with col_m4:
-        st.markdown(f"""<div class="glass-card" style="text-align:center;"><div class="metric-label">TOPLAM SİPARİŞ</div><div class="metric-value">{len(df)}</div></div>""", unsafe_allow_html=True)
-
-    # --- TABS ---
-    tabs = st.tabs([
-        "🚀 YENİ SEVKİYAT",
-        "✅ OPERASYON",
-        "🏦 FATURA & ÖDEME PANELİ",
-        "📦 TÜM SİPARİŞLER",
-        "📊 ANALİTİK",
-        "❔ SSS & AKIŞ REHBERİ"
-    ])
-    
-    with tabs[0]: render_new_dispatch()
-    with tabs[1]: render_operations()
-    with tabs[2]: render_brand_payout_hq()
-    with tabs[3]: render_all_orders()
-    with tabs[4]: render_analytics(df)
-    with tabs[5]: render_faqs()
-
-# ============================================================================
-# 8. NEW DISPATCH MODULE (SİPARİŞ OLUŞTURMA)
-# ============================================================================
-
-def render_new_dispatch():
-    col_L, col_R = st.columns([PHI, 1])
-    
-    with col_L:
-        # --- CUSTOMER INFO ---
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown("#### 👤 Müşteri Bilgileri")
-        col_n, col_p = st.columns(2)
-        with col_n: cust_name = st.text_input("Ad Soyad", key="cust_name")
-        with col_p: cust_phone = st.text_input("Telefon", key="cust_phone")
-        cust_addr = st.text_area("Adres", key="cust_addr", height=80)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # --- PRODUCT SELECTION ---
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown("#### 🛒 Ürün Seçimi")
-        
-        active_brand = st.session_state.brand_lock if st.session_state.cart else st.selectbox("Marka Seçiniz", list(BRANDS.keys()), key="brand_sel")
-        
-        brand_data = BRANDS[active_brand]
-        products = list(brand_data["products"].keys())
-        
-        col_p, col_q = st.columns([3, 1])
-        with col_p: prod = st.selectbox("Ürün", products, key="prod_sel")
-        with col_q: qty = st.number_input("Adet", 1, value=1, key="qty")
-        
-        # --- ADD TO CART LOGIC ---
-        if st.button("➕ Sepete Ekle"):
-            prod_details = brand_data["products"][prod]
-            line_total = prod_details['price'] * qty
-            comm_amt = line_total * brand_data['commission']
-            payout = line_total - comm_amt
-            
-            st.session_state.cart.append({
-                "brand": active_brand,
-                "product": prod,
-                "sku": prod_details['sku'],
-                "qty": qty,
-                "unit_price": prod_details['price'],
-                "subtotal": line_total,
-                "comm_amt": comm_amt,
-                "payout": payout
-            })
-            st.session_state.brand_lock = active_brand
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with col_R:
-        # --- CART SUMMARY ---
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown("#### 📦 Sepet Özeti")
-        
-        if st.session_state.cart:
-            total = sum(i['subtotal'] for i in st.session_state.cart)
-            total_comm = sum(i['comm_amt'] for i in st.session_state.cart)
-            total_pay = sum(i['payout'] for i in st.session_state.cart)
-            
-            # Display individual items and commissions
-            for item in st.session_state.cart:
-                item_html = f"""
-<div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05);">
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-<span style="font-weight:700; font-size:14px;">{item['product']}</span>
-<span style="background:rgba(78,205,196,0.2); color:#4ECDC4; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">x{item['qty']}</span>
-</div>
-<div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:11px;">
-<div style="background:rgba(252, 211, 77, 0.1); padding:4px; border-radius:4px; text-align:center;">
-<div style="color:#FCD34D; opacity:0.8;">Komisyon</div>
-<div style="color:#FCD34D; font-weight:bold;">{item['comm_amt']:,.0f}₺</div>
-</div>
-<div style="background:rgba(78, 205, 196, 0.1); padding:4px; border-radius:4px; text-align:center;">
-<div style="color:#4ECDC4; opacity:0.8;">Marka Ödemesi</div>
-<div style="color:#4ECDC4; font-weight:bold;">{item['payout']:,.0f}₺</div>
-</div>
-</div>
-</div>
-"""
-                st.markdown(item_html, unsafe_allow_html=True)
-            
-            # Display cart totals
-            summary_html = f"""
-<div style="background: rgba(78,205,196,0.1); padding: 15px; border-radius: 8px; margin: 15px 0;">
-<div style="display:flex; justify-content:space-between; font-weight:bold; font-size:18px; color:#4ECDC4; margin-top:8px;">
-<span>MARKAYA NET:</span>
-<span>{total_pay:,.0f}₺</span>
-</div>
-</div>
-"""
-            st.markdown(summary_html, unsafe_allow_html=True)
-            
-            # --- ACTION BUTTONS ---
-            if st.button("⚡ SİPARİŞİ OLUŞTUR", type="primary"):
-                if cust_name and cust_phone and cust_addr:
-                    order_id = f"NV-{datetime.now().strftime('%m%d%H%M%S')}"
-                    items_str = ", ".join([f"{i['product']} (x{i['qty']})" for i in st.session_state.cart])
-                    
-                    order_data = {
-                        'Order_ID': order_id,
-                        'Time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'Brand': st.session_state.brand_lock,
-                        'Customer': cust_name,
-                        'Phone': cust_phone,
-                        'Address': cust_addr,
-                        'Items': items_str,
-                        'Total_Value': total,
-                        'Commission_Rate': BRANDS[st.session_state.brand_lock]['commission'],
-                        'Commission_Amt': total_comm,
-                        'Brand_Payout': total_pay,
-                        'Status': 'Pending',
-                        'WhatsApp_Sent': 'NO',
-                        'Tracking_Num': '',
-                        'Priority': 'Standard',
-                        'Notes': '',
-                        'Created_By': 'admin',
-                        'Last_Modified': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    }
-                    
-                    if save_order(order_data):
-                        st.success(f"✅ Sipariş {order_id} oluşturuldu! Markaya bildirilmesi gerekiyor.")
-                        st.session_state.cart = []
-                        st.session_state.brand_lock = None
-                        st.rerun()
-                else:
-                    st.error("Müşteri bilgileri (Ad Soyad, Telefon, Adres) eksik!")
-            
-            if st.button("🗑️ Sepeti Temizle"):
-                st.session_state.cart = []
-                st.session_state.brand_lock = None
-                st.rerun()
-        else:
-            st.info("Sepet boş")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# ============================================================================
-# 9. OPERATIONS MODULE (WHATSAPP & TAKİP)
-# ============================================================================
-
-def render_operations():
-    st.markdown("### ✅ Operasyon Yönetimi (Sipariş Takibi)")
-    df = load_orders()
-    
-    # 9A: PENDING NOTIFICATION (RED GLOW)
-    st.markdown("#### 🔴 Markaya Bildirilmesi Gereken Yeni Siparişler")
-    new_orders = df[df['WhatsApp_Sent'] == 'NO']
-    
-    if not new_orders.empty:
-        st.warning(f"⚠️ {len(new_orders)} sipariş bekliyor!")
-        for idx, row in new_orders.iterrows():
-            with st.expander(f"🔴 **{row['Order_ID']}** - {row['Brand']} ({row['Customer']}) - {row['Total_Value']:,.0f}₺", expanded=True):
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    phone = BRANDS[row['Brand']]['phone']
-                    # Create WhatsApp Message Payload
-                    msg_template = (
-                        f"YENİ NATUVISIO SİPARİŞİ: {row['Order_ID']}\n\n"
-                        f"Ürünler: {row['Items']}\n\n"
-                        f"Müşteri: {row['Customer']}\n"
-                        f"Telefon: {row['Phone']}\n"
-                        f"Adres: {row['Address']}"
-                    )
-                    msg = urllib.parse.quote(msg_template)
-                    # Use wa.me link to send message
-                    st.markdown(f"[📲 WhatsApp Mesajı Gönder (Markaya)](https://wa.me/{phone}?text={msg})")
-                with col2:
-                    if st.button("✅ Bildirildi", key=f"ntf_{idx}", use_container_width=True):
-                        df.loc[idx, 'WhatsApp_Sent'] = 'YES'
-                        df.loc[idx, 'Status'] = 'Notified'
-                        update_orders(df)
-                        st.rerun()
-    else:
-        st.success("Tüm yeni siparişler markalara bildirilmiş.")
-        
-    st.markdown("---")
-    
-    # 9B: WAITING FOR TRACKING NUMBER
-    st.markdown("#### ⏳ Takip Numarası Bekleyen Siparişler")
-    pending_track = df[(df['Status'] == 'Notified') & (df['Tracking_Num'].isna() | (df['Tracking_Num'] == ''))]
-    
-    if not pending_track.empty:
-        for idx, row in pending_track.iterrows():
-            with st.expander(f"📦 **{row['Order_ID']}** - {row['Brand']} için Takip No Girişi", expanded=False):
-                track = st.text_input("Takip No Giriniz", key=f"track_{idx}", help="Markadan gelen kargo takip numarasını buraya girin.")
-                if st.button("Kargolandı (Dispatched)", key=f"ship_{idx}"):
-                    df.loc[idx, 'Tracking_Num'] = track
-                    df.loc[idx, 'Status'] = 'Dispatched'
-                    update_orders(df)
-                    st.success("Kargolandı!")
-                    time.sleep(1)
-                    st.rerun()
-
-    st.markdown("---")
-    
-    # 9C: WAITING FOR COMPLETION (MONITORING)
-    st.markdown("#### 💰 Hakediş Bekleyen Kargodaki Siparişler")
-    dispatched = df[df['Status'] == 'Dispatched']
-    
-    if not dispatched.empty:
-        st.dataframe(dispatched[['Order_ID', 'Brand', 'Customer', 'Tracking_Num', 'Brand_Payout']], use_container_width=True)
-        st.warning("Bu siparişler müşteriye ulaştığında 'Tamamla' butonuna basarak hakedişe eklenmelidir.")
-        
-        # Completion Action
-        with st.form("complete_order_form"):
-            st.write("Siparişi Tamamla")
-            order_list = dispatched['Order_ID'].tolist()
-            selected_order = st.selectbox("Tamamlanacak Sipariş Seçiniz", order_list)
-            
-            if st.form_submit_button("✅ Tamamlandı (Completed)"):
-                idx = df.index[df['Order_ID'] == selected_order].tolist()[0]
-                df.loc[idx, 'Status'] = 'Completed'
-                update_orders(df)
-                st.success(f"Sipariş {selected_order} başarıyla tamamlandı ve ödeme hakedişine eklendi!")
-                st.rerun()
-    else:
-        st.info("Kargoda bekleyen sipariş yok.")
-        
-# ============================================================================
-# 10. PAYOUT HQ (FATURA & ÖDEME PANELİ)
-# ============================================================================
-
-def render_brand_payout_hq():
-    st.markdown("## 🏦 FATURA & ÖDEME PANELİ (BRAND PAYOUT HQ)")
-    
-    df_orders = load_orders()
-    df_payments = load_payments()
-    
-    for brand in BRANDS.keys():
-        with st.expander(f"🧾 {brand} - FİNANS YÖNETİMİ", expanded=True):
-            brand_meta = BRANDS[brand]
-            brand_orders = df_orders[df_orders['Brand'] == brand]
-            
-            # Calculation of DUE amounts (only Completed orders count)
-            completed_df = brand_orders[brand_orders['Status'] == 'Completed']
-            payout_completed = completed_df['Brand_Payout'].sum() if not completed_df.empty else 0
-            count_completed = len(completed_df)
-            
-            # Calculation of PAID amounts
-            brand_paid_df = df_payments[df_payments['Brand'] == brand]
-            total_paid = brand_paid_df['Amount'].sum() if not brand_paid_df.empty else 0
-            
-            net_transfer_due = payout_completed - total_paid
-            
-            # Display Metrics
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown(f"""
-                <div class="glass-card" style="border-left: 4px solid #4ECDC4;">
-                    <div style="font-size:12px; opacity:0.7;">MARKAYA HAKEDİŞ TUTARI (Completed Orders)</div>
-                    <div style="font-size:24px; font-weight:bold;">{payout_completed:,.2f}₺</div>
-                    <div style="font-size:11px; opacity:0.6;">(Toplam {count_completed} Tamamlanan Sipariş)</div>
-                </div>
-                """, unsafe_allow_html=True)
-            with col2:
-                color = "#4ECDC4" if net_transfer_due <= 0 else "#FF6B6B"
-                st.markdown(f"""
-                <div class="glass-card" style="border-left: 4px solid {color};">
-                    <div style="font-size:12px; opacity:0.7;">NET TRANSFER GEREKSİNİMİ (DUE)</div>
-                    <div style="font-size:24px; font-weight:bold; color:{color};">{net_transfer_due:,.2f}₺</div>
-                    <div style="font-size:11px; opacity:0.6;">(Hakediş - Ödenen Tutar)</div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            # Bank Transfer Instructions
-            st.markdown("#### 💸 Banka Transfer Talimatı")
-            col_bank1, col_bank2 = st.columns([2, 1])
-            with col_bank1:
-                st.info(f"**Alıcı:** {brand_meta['account_name']}  \n**IBAN:** {brand_meta['iban']}")
-            with col_bank2:
-                transfer_desc = f"NATUVISIO {brand} satış ödemesi - {datetime.now().strftime('%d.%m.%Y')} - Tutar: {net_transfer_due:,.0f}TL"
-                st.code(transfer_desc, language="text")
-            
-            # Payout Button
-            if net_transfer_due > 0:
-                if st.button(f"💸 ÖDEMEYİ YAPTIM ({net_transfer_due:,.0f}₺)", key=f"pay_{brand}", use_container_width=True):
-                    payment_data = {
-                        "Payment_ID": f"PAY-{datetime.now().strftime('%m%d%H%M%S')}",
-                        "Time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        "Brand": brand,
-                        "Amount": net_transfer_due,
-                        "Method": "Bank Transfer",
-                        "Reference": "Admin Manual",
-                        "Status": "Confirmed",
-                        "Proof_File": "",
-                        "Notes": "Payout HQ üzerinden ödendi",
-                        "Fatura_Sent": "No",
-                        "Fatura_Date": "",
-                        "Fatura_Explanation": ""
-                    }
-                    if save_payment(payment_data):
-                        st.balloons()
-                        st.success("Ödeme sisteme işlendi!")
-                        time.sleep(1)
-                        st.rerun()
-            elif net_transfer_due <= 0 and payout_completed > 0:
-                st.success("✅ Tüm hakediş ödemeleri tamamlanmıştır.")
-            else:
-                 st.info("Hakediş oluşmadı (Tamamlanan sipariş yok).")
-
-    # Fatura Status Check
-    st.markdown("---")
-    st.markdown("### 📋 Ödeme Kayıtları ve Fatura Durum Tablosu")
-    df_payments = load_payments()
-    if not df_payments.empty:
-        st.dataframe(df_payments[['Time', 'Brand', 'Amount', 'Fatura_Sent', 'Fatura_Date']], use_container_width=True)
-        # Form for updating Fatura Status
-        with st.form("update_fatura_status"):
-            st.write("Fatura Durumu Güncelleme")
-            pay_ids = df_payments['Payment_ID'].tolist()
-            selected_pay = st.selectbox("İşlem Seçiniz (Payment ID)", pay_ids)
-            
-            idx = df_payments.index[df_payments['Payment_ID'] == selected_pay].tolist()[0]
-            current_status = df_payments.loc[idx, 'Fatura_Sent'] == "YES"
-            current_date = df_payments.loc[idx, 'Fatura_Date']
-            
-            col_f1, col_f2 = st.columns(2)
-            with col_f1: new_status = st.checkbox("Fatura Kesildi mi? (YES)", value=current_status)
-            with col_f2: 
-                try:
-                    date_val = datetime.strptime(str(current_date), '%Y-%m-%d').date()
-                except:
-                    date_val = datetime.now().date()
-                new_date = st.date_input("Fatura Tarihi", value=date_val)
-                
-            if st.form_submit_button("Durumu Güncelle"):
-                df_payments.loc[idx, 'Fatura_Sent'] = "YES" if new_status else "NO"
-                df_payments.loc[idx, 'Fatura_Date'] = str(new_date)
-                update_payments(df_payments)
-                st.success("Güncellendi!")
-                st.rerun()
-    else:
-        st.info("Henüz ödeme kaydı bulunmamaktadır.")
-
-
-# ============================================================================
-# 11. OTHER FUNCTIONS (TABLES & ANALYTICS)
-# ============================================================================
-
-def render_all_orders():
-    st.markdown("### 📦 Tüm Sipariş Geçmişi")
-    df = load_orders()
-    if not df.empty:
-        st.dataframe(df.sort_values('Time', ascending=False), use_container_width=True)
-    else:
-        st.info("Kayıt yok")
-
-def render_analytics(df):
-    st.markdown("### 📊 Analitik Raporlar")
-    
-    if df.empty:
-        st.info("Analiz için yeterli sipariş verisi yok.")
-        return
-        
-    col1, col2 = st.columns(2)
-    
-    # Chart 1: Revenue by Brand
-    revenue_by_brand = df.groupby('Brand')['Total_Value'].sum().reset_index()
-    fig1 = px.bar(
-        revenue_by_brand,
-        x='Brand',
-        y='Total_Value',
-        title='Marka Bazlı Toplam Ciro',
-        color='Brand',
-        color_discrete_map={k: v['color'] for k, v in BRANDS.items()},
-        template='plotly_dark'
-    )
-    with col1: st.plotly_chart(fig1, use_container_width=True)
-    
-    # Chart 2: Status Distribution
-    status_counts = df['Status'].value_counts().reset_index()
-    status_counts.columns = ['Status', 'Count']
-    fig2 = px.pie(
-        status_counts,
-        names='Status',
-        values='Count',
-        title='Sipariş Durum Dağılımı',
-        color_discrete_sequence=px.colors.qualitative.Pastel,
-        template='plotly_dark'
-    )
-    with col2: st.plotly_chart(fig2, use_container_width=True)
-    
-    # Chart 3: Commission Trend (Assuming time column is useful)
-    df['Date'] = pd.to_datetime(df['Time']).dt.date
-    daily_comm = df.groupby('Date')['Commission_Amt'].sum().reset_index()
-    fig3 = px.line(
-        daily_comm,
-        x='Date',
-        y='Commission_Amt',
-        title='Günlük Komisyon Gelir Trendi',
-        template='plotly_dark'
-    )
-    st.plotly_chart(fig3, use_container_width=True)
-
-
-def render_faqs():
-    st.markdown("## ❔ SSS & Operasyon Akış Rehberi")
-    
-    with st.expander("1. Genel bakış: Bu panel ne yapıyor?", expanded=True):
-        st.markdown("""
-        Bu panel, NATUVISIO'nun tüm marka partnerleri için (Haki Heal, Auroraco, Longevicals vb.) **tek merkezden sevkiyat, finans ve mutabakat** yönetimini sağlar.
-        
-        **Temel Özellikler:**
-        * **Sipariş Girişi:** Müşteri ve ürün bilgilerini alıp otomatik komisyon hesabı yapar.
-        * **İletişim:** Tek tıkla markaya özel WhatsApp sipariş mesajı oluşturur.
-        * **Finansal Zeka:** Tamamlanan siparişleri baz alarak hangi markaya ne kadar ödeme yapılması gerektiğini (Borç) ve markaya ne kadar fatura kesileceğini (Alacak) otomatik hesaplar.
-        """)
-
-    with st.expander("2. Sipariş akışı: İlk adımdan marka ödemesine kadar", expanded=False):
-        st.markdown("""
-        1.  **🚀 YENİ SEVKİYAT** sekmesine girin. Müşteri ve ürün bilgilerini girip **"⚡ SİPARİŞİ OLUŞTUR"** butonuna basın. (Sipariş Durumu: **Pending**)
-        2.  **✅ OPERASYON** sekmesine geçin. Yeni siparişi bulun ve **"📲 WhatsApp Mesajı Gönder"** linkiyle markaya iletin.
-        3.  Mesajı attıktan sonra **"✅ Bildirildi"** butonuna basın. (Durum: **Notified**, WhatsApp: **YES**)
-        4.  Markadan takip numarası geldiğinde, Operasyon sekmesinde Takip No'yu girip **"Kargola"** deyin. (Durum: **Dispatched**)
-        5.  Ürün müşteriye ulaştığında **"✅ Tamamlandı"** butonuna basın. (Durum: **Completed**)
-        6.  **🏦 FATURA & ÖDEME PANELİ** sekmesinde markanın hakedişini kontrol edin ve **"💸 ÖDEMEYİ YAPTIM"** butonuna basarak ödemeyi sisteme işleyin.
-        """)
-        
-    with st.expander("3. Komisyon ve marka ödemesi nasıl hesaplanıyor?", expanded=False):
-        st.markdown(f"""
-        Her markanın komisyon oranı sistemde sabittir (Örn: Haki Heal: %15, Auroraco: %20).
-        
-        **Hesaplama Mantığı:**
-        $$ \\text{{Komisyon Tutarı}} = \\text{{Satır Toplamı}} \\times \\text{{Komisyon Oranı}} $$
-        $$ \\text{{Marka Ödemesi}} = \\text{{Satır Toplamı}} - \\text{{Komisyon Tutarı}} $$
-        Bu değerler sipariş oluşturulduğu an kaydedilir.
-        """)
-        
-    with st.expander("4. Sipariş durumları (Pending → Notified → Dispatched → Completed)", expanded=False):
-        st.markdown("""
-        * **🔴 Pending:** Sipariş sisteme girildi, markaya iletilmedi.
-        * **🔵 Notified:** Markaya sipariş detayı atıldı (WhatsApp_Sent = YES). Takip numarası bekleniyor.
-        * **🟠 Dispatched:** Kargo takip numarası sisteme girildi. Ürün yolda.
-        * **🟢 Completed:** Ürün müşteriye ulaştı. Bu siparişin parası markaya ödenmeye **hak kazanır** (Hakedişe eklenir).
-        """)
-
-
-# ============================================================================
-# 13. MAIN RUNTIME
-# ============================================================================
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════
 
 st.set_page_config(
-    page_title="NATUVISIO Dispatch OS",
-    page_icon="🏔️",
+    page_title="NATUVISIO Partner",
+    page_icon="◉",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-if __name__ == "__main__":
-    if not st.session_state.admin_logged_in:
-        login_screen()
+# Database files
+DB_ORDERS = "partner_orders.csv"
+DB_STOCK = "partner_stock.csv"
+DB_SALES = "partner_sales.csv"
+DB_WORKFLOW = "partner_workflow.csv"
+
+# Partner credentials (in production, use proper auth)
+PARTNERS = {
+    "dr.ahmet": {
+        "password": "partner2025",
+        "name": "Dr. Ahmet Yılmaz",
+        "clinic": "Yılmaz Klinik",
+        "role": "Premium Partner",
+        "avatar": "🧑‍⚕️"
+    },
+    "elif.kaya": {
+        "password": "partner2025",
+        "name": "Elif Kaya",
+        "clinic": "Wellness Hub",
+        "role": "Elite Partner",
+        "avatar": "👩‍💼"
+    },
+    "demo": {
+        "password": "demo",
+        "name": "Demo Partner",
+        "clinic": "Demo Clinic",
+        "role": "Partner",
+        "avatar": "👤"
+    }
+}
+
+# Products configuration
+PRODUCTS = {
+    "OXIFIT": {
+        "sku": "NV-OXI-001",
+        "price": 850,
+        "partner_price": 595,
+        "color": "#E07A5F",
+        "icon": "🫁"
+    },
+    "BLACK STUFF": {
+        "sku": "NV-BLK-001", 
+        "price": 720,
+        "partner_price": 504,
+        "color": "#3D405B",
+        "icon": "⚫"
+    },
+    "HAKI HEAL KREM": {
+        "sku": "NV-HKH-001",
+        "price": 450,
+        "partner_price": 315,
+        "color": "#81B29A",
+        "icon": "🧴"
+    },
+    "LONGEVICALS DHA": {
+        "sku": "NV-LNG-001",
+        "price": 1200,
+        "partner_price": 840,
+        "color": "#F2CC8F",
+        "icon": "💊"
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DESIGN SYSTEM - Scandinavian Zen meets Tokyo Minimalism
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def inject_global_styles():
+    st.markdown("""
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Instrument+Serif:ital@0;1&display=swap');
+        
+        :root {
+            --bg-primary: #FAF9F7;
+            --bg-secondary: #F5F3EF;
+            --bg-card: #FFFFFF;
+            --text-primary: #1A1A1A;
+            --text-secondary: #6B6B6B;
+            --text-muted: #9B9B9B;
+            --accent-sage: #81B29A;
+            --accent-terracotta: #E07A5F;
+            --accent-navy: #3D405B;
+            --accent-sand: #F2CC8F;
+            --border-light: rgba(0,0,0,0.06);
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 20px rgba(0,0,0,0.06);
+            --shadow-lg: 0 12px 40px rgba(0,0,0,0.08);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            --glow-warning: 0 0 20px rgba(224, 122, 95, 0.4), 0 0 40px rgba(224, 122, 95, 0.2);
+            --glow-success: 0 0 20px rgba(129, 178, 154, 0.4), 0 0 40px rgba(129, 178, 154, 0.2);
+        }
+        
+        * {
+            font-family: 'DM Sans', -apple-system, sans-serif !important;
+        }
+        
+        .stApp {
+            background: var(--bg-primary) !important;
+        }
+        
+        /* Hide Streamlit defaults */
+        #MainMenu, header, footer, .stDeployButton { visibility: hidden; }
+        .block-container { padding-top: 2rem !important; max-width: 1400px !important; }
+        
+        /* Typography */
+        .headline-serif {
+            font-family: 'Instrument Serif', Georgia, serif !important;
+            font-size: 3rem;
+            font-weight: 400;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+        }
+        
+        .subtitle {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+        
+        /* Card System */
+        .zen-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .zen-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+        
+        /* Glowing Cards for Status */
+        .card-glow-warning {
+            box-shadow: var(--glow-warning);
+            border: 1px solid rgba(224, 122, 95, 0.3);
+            animation: pulse-warning 2s infinite;
+        }
+        
+        .card-glow-success {
+            box-shadow: var(--glow-success);
+            border: 1px solid rgba(129, 178, 154, 0.3);
+            animation: pulse-success 2s infinite;
+        }
+        
+        @keyframes pulse-warning {
+            0%, 100% { box-shadow: 0 0 20px rgba(224, 122, 95, 0.3), 0 0 40px rgba(224, 122, 95, 0.15); }
+            50% { box-shadow: 0 0 30px rgba(224, 122, 95, 0.5), 0 0 60px rgba(224, 122, 95, 0.25); }
+        }
+        
+        @keyframes pulse-success {
+            0%, 100% { box-shadow: 0 0 20px rgba(129, 178, 154, 0.3), 0 0 40px rgba(129, 178, 154, 0.15); }
+            50% { box-shadow: 0 0 30px rgba(129, 178, 154, 0.5), 0 0 60px rgba(129, 178, 154, 0.25); }
+        }
+        
+        /* Stat Display */
+        .stat-value {
+            font-family: 'Instrument Serif', serif !important;
+            font-size: 2.5rem;
+            font-weight: 400;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-top: 8px;
+        }
+        
+        /* Navigation Pills */
+        .nav-container {
+            display: flex;
+            gap: 8px;
+            padding: 6px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            margin-bottom: 32px;
+        }
+        
+        .nav-pill {
+            padding: 12px 24px;
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            position: relative;
+        }
+        
+        .nav-pill.active {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .nav-pill .badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: badge-pulse 1.5s infinite;
+        }
+        
+        .badge-warning { background: var(--accent-terracotta); }
+        .badge-success { background: var(--accent-sage); }
+        
+        @keyframes badge-pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
+        }
+        
+        /* Tables */
+        .zen-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        .zen-table th {
+            text-align: left;
+            padding: 16px 20px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-light);
+            font-weight: 600;
+        }
+        
+        .zen-table td {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-light);
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            vertical-align: middle;
+        }
+        
+        .zen-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        /* Buttons */
+        div.stButton > button {
+            background: var(--accent-navy) !important;
+            color: white !important;
+            border: none !important;
+            padding: 14px 28px !important;
+            border-radius: var(--radius-sm) !important;
+            font-weight: 600 !important;
+            font-size: 0.875rem !important;
+            letter-spacing: 0.02em !important;
+            transition: all 0.2s !important;
+        }
+        
+        div.stButton > button:hover {
+            background: var(--text-primary) !important;
+            transform: translateY(-1px);
+        }
+        
+        /* Input Fields */
+        .stTextInput > div > div > input,
+        .stNumberInput > div > div > input,
+        .stSelectbox > div > div {
+            background: var(--bg-secondary) !important;
+            border: 1px solid var(--border-light) !important;
+            border-radius: var(--radius-sm) !important;
+            padding: 12px 16px !important;
+            font-size: 0.9rem !important;
+        }
+        
+        .stTextInput > div > div > input:focus,
+        .stNumberInput > div > div > input:focus {
+            border-color: var(--accent-sage) !important;
+            box-shadow: 0 0 0 3px rgba(129, 178, 154, 0.15) !important;
+        }
+        
+        /* Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .status-pending {
+            background: rgba(224, 122, 95, 0.12);
+            color: #C25A3F;
+        }
+        
+        .status-processing {
+            background: rgba(242, 204, 143, 0.2);
+            color: #B8923F;
+        }
+        
+        .status-completed {
+            background: rgba(129, 178, 154, 0.12);
+            color: #5A8F6E;
+        }
+        
+        /* Product Cards */
+        .product-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.2s;
+        }
+        
+        .product-card:hover {
+            border-color: var(--accent-sage);
+        }
+        
+        .product-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        
+        /* Workflow Item */
+        .workflow-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            margin-bottom: 12px;
+            transition: all 0.3s;
+        }
+        
+        .workflow-item.urgent {
+            border-left: 4px solid var(--accent-terracotta);
+            box-shadow: var(--glow-warning);
+        }
+        
+        .workflow-item.ready {
+            border-left: 4px solid var(--accent-sage);
+            box-shadow: var(--glow-success);
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+        
+        /* Login Specific */
+        .login-container {
+            max-width: 420px;
+            margin: 80px auto;
+            text-align: center;
+        }
+        
+        .login-brand {
+            font-family: 'Instrument Serif', serif !important;
+            font-size: 2rem;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+        
+        .login-tagline {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 48px;
+        }
+        
+        /* Header */
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            margin-bottom: 40px;
+            border-bottom: 1px solid var(--border-light);
+        }
+        
+        .header-brand {
+            font-family: 'Instrument Serif', serif !important;
+            font-size: 1.5rem;
+            color: var(--text-primary);
+        }
+        
+        .header-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        /* Progress Ring */
+        .progress-ring {
+            width: 60px;
+            height: 60px;
+            position: relative;
+        }
+        
+        .progress-ring svg {
+            transform: rotate(-90deg);
+        }
+        
+        .progress-ring circle {
+            fill: none;
+            stroke-width: 4;
+        }
+        
+        .progress-ring .bg {
+            stroke: var(--bg-secondary);
+        }
+        
+        .progress-ring .progress {
+            stroke: var(--accent-sage);
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.5s;
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATABASE OPERATIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def init_databases():
+    """Initialize CSV databases with sample data if they don't exist"""
+    
+    # Stock database
+    if not os.path.exists(DB_STOCK):
+        stock_data = []
+        for partner_id in PARTNERS.keys():
+            for product, info in PRODUCTS.items():
+                stock_data.append({
+                    "Partner_ID": partner_id,
+                    "Product": product,
+                    "SKU": info["sku"],
+                    "Initial_Stock": 50,
+                    "Current_Stock": np.random.randint(15, 45),
+                    "Last_Updated": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                })
+        pd.DataFrame(stock_data).to_csv(DB_STOCK, index=False)
+    
+    # Orders database
+    if not os.path.exists(DB_ORDERS):
+        pd.DataFrame(columns=[
+            "Order_ID", "Partner_ID", "Product", "Quantity", "Status",
+            "Customer_Name", "Customer_Phone", "Created_At", "Updated_At"
+        ]).to_csv(DB_ORDERS, index=False)
+    
+    # Sales database
+    if not os.path.exists(DB_SALES):
+        # Create sample sales history
+        sales_data = []
+        statuses = ["Completed", "Completed", "Completed", "Processing", "Pending"]
+        for i in range(15):
+            partner = np.random.choice(list(PARTNERS.keys()))
+            product = np.random.choice(list(PRODUCTS.keys()))
+            status = np.random.choice(statuses)
+            days_ago = np.random.randint(0, 30)
+            sales_data.append({
+                "Sale_ID": f"SL-{1000+i}",
+                "Partner_ID": partner,
+                "Product": product,
+                "Quantity": np.random.randint(1, 5),
+                "Unit_Price": PRODUCTS[product]["price"],
+                "Partner_Margin": PRODUCTS[product]["price"] - PRODUCTS[product]["partner_price"],
+                "Status": status,
+                "Customer": f"Müşteri {i+1}",
+                "Created_At": (datetime.now() - timedelta(days=days_ago)).strftime('%Y-%m-%d %H:%M:%S')
+            })
+        pd.DataFrame(sales_data).to_csv(DB_SALES, index=False)
+    
+    # Workflow database
+    if not os.path.exists(DB_WORKFLOW):
+        workflow_data = [
+            {
+                "Task_ID": "WF-001",
+                "Partner_ID": "dr.ahmet",
+                "Type": "stock_request",
+                "Title": "OXIFIT Stok Talebi",
+                "Description": "20 adet OXIFIT siparişi onay bekliyor",
+                "Status": "pending",
+                "Priority": "high",
+                "Created_At": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            },
+            {
+                "Task_ID": "WF-002",
+                "Partner_ID": "dr.ahmet",
+                "Type": "delivery",
+                "Title": "Kargo Teslimatı",
+                "Description": "BLACK STUFF kargosu yola çıktı",
+                "Status": "processing",
+                "Priority": "medium",
+                "Created_At": (datetime.now() - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S')
+            },
+            {
+                "Task_ID": "WF-003",
+                "Partner_ID": "dr.ahmet",
+                "Type": "completed",
+                "Title": "Satış Tamamlandı",
+                "Description": "5 adet HAKI HEAL satışı onaylandı",
+                "Status": "completed",
+                "Priority": "low",
+                "Created_At": (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')
+            }
+        ]
+        pd.DataFrame(workflow_data).to_csv(DB_WORKFLOW, index=False)
+
+def load_stock(partner_id):
+    try:
+        df = pd.read_csv(DB_STOCK)
+        return df[df['Partner_ID'] == partner_id]
+    except:
+        return pd.DataFrame()
+
+def load_sales(partner_id):
+    try:
+        df = pd.read_csv(DB_SALES)
+        return df[df['Partner_ID'] == partner_id]
+    except:
+        return pd.DataFrame()
+
+def load_workflow(partner_id):
+    try:
+        df = pd.read_csv(DB_WORKFLOW)
+        return df[df['Partner_ID'] == partner_id]
+    except:
+        return pd.DataFrame()
+
+def save_sale(sale_data):
+    try:
+        df = pd.read_csv(DB_SALES) if os.path.exists(DB_SALES) else pd.DataFrame()
+        df = pd.concat([df, pd.DataFrame([sale_data])], ignore_index=True)
+        df.to_csv(DB_SALES, index=False)
+        return True
+    except:
+        return False
+
+def update_stock(partner_id, product, quantity_sold):
+    try:
+        df = pd.read_csv(DB_STOCK)
+        mask = (df['Partner_ID'] == partner_id) & (df['Product'] == product)
+        if mask.any():
+            current = df.loc[mask, 'Current_Stock'].values[0]
+            df.loc[mask, 'Current_Stock'] = max(0, current - quantity_sold)
+            df.loc[mask, 'Last_Updated'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            df.to_csv(DB_STOCK, index=False)
+            return True
+    except:
+        pass
+    return False
+
+def complete_workflow_task(task_id):
+    try:
+        df = pd.read_csv(DB_WORKFLOW)
+        df.loc[df['Task_ID'] == task_id, 'Status'] = 'completed'
+        df.to_csv(DB_WORKFLOW, index=False)
+        return True
+    except:
+        return False
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SESSION STATE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+if 'partner_id' not in st.session_state:
+    st.session_state.partner_id = None
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = "dashboard"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LOGIN SCREEN
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def render_login():
+    inject_global_styles()
+    
+    st.markdown("""
+    <div class="login-container">
+        <div class="login-brand">NATUVISIO</div>
+        <div class="login-tagline">Partner Operating System</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col2:
+        st.markdown("""
+        <div class="zen-card" style="padding: 40px;">
+            <h3 style="font-family: 'Instrument Serif', serif; font-weight: 400; margin-bottom: 8px; text-align: center;">Hoş Geldiniz</h3>
+            <p style="color: var(--text-muted); font-size: 0.875rem; text-align: center; margin-bottom: 32px;">Partner hesabınıza giriş yapın</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        username = st.text_input("Kullanıcı Adı", placeholder="örn: dr.ahmet", key="login_user")
+        password = st.text_input("Şifre", type="password", placeholder="••••••••", key="login_pass")
+        
+        st.markdown("<div style='height: 16px'></div>", unsafe_allow_html=True)
+        
+        if st.button("Giriş Yap", use_container_width=True):
+            if username in PARTNERS and PARTNERS[username]["password"] == password:
+                st.session_state.logged_in = True
+                st.session_state.partner_id = username
+                st.rerun()
+            else:
+                st.error("Geçersiz kullanıcı adı veya şifre")
+        
+        st.markdown("""
+        <div style="text-align: center; margin-top: 24px; color: var(--text-muted); font-size: 0.75rem;">
+            Demo için: <strong>demo</strong> / <strong>demo</strong>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HEADER COMPONENT
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def render_header():
+    partner = PARTNERS[st.session_state.partner_id]
+    
+    col1, col2, col3 = st.columns([2, 4, 2])
+    
+    with col1:
+        st.markdown(f"""
+        <div style="font-family: 'Instrument Serif', serif; font-size: 1.5rem; color: var(--text-primary);">
+            NATUVISIO
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px;">
+            <div style="text-align: right;">
+                <div style="font-weight: 600; font-size: 0.9rem;">{partner['name']}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">{partner['role']}</div>
+            </div>
+            <div style="width: 40px; height: 40px; background: var(--bg-secondary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+                {partner['avatar']}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<div style='height: 8px'></div>", unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NAVIGATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def render_navigation():
+    partner_id = st.session_state.partner_id
+    
+    # Count pending tasks for badges
+    workflow_df = load_workflow(partner_id)
+    pending_count = len(workflow_df[workflow_df['Status'] == 'pending']) if not workflow_df.empty else 0
+    completed_count = len(workflow_df[workflow_df['Status'] == 'completed']) if not workflow_df.empty else 0
+    
+    nav_items = [
+        ("dashboard", "◉ Dashboard", None),
+        ("stock", "📦 Stok Takibi", None),
+        ("workflow", "⚡ İş Akışı", "warning" if pending_count > 0 else None),
+        ("completed", "✓ Tamamlananlar", "success" if completed_count > 0 else None),
+        ("logout", "← Çıkış", None)
+    ]
+    
+    cols = st.columns(len(nav_items))
+    
+    for i, (key, label, badge) in enumerate(nav_items):
+        with cols[i]:
+            is_active = st.session_state.current_page == key
+            badge_html = f'<span class="badge badge-{badge}" style="position: absolute; top: 8px; right: 8px;"></span>' if badge else ''
+            
+            if st.button(
+                label,
+                key=f"nav_{key}",
+                use_container_width=True,
+                type="primary" if is_active else "secondary"
+            ):
+                if key == "logout":
+                    st.session_state.logged_in = False
+                    st.session_state.partner_id = None
+                    st.session_state.current_page = "dashboard"
+                    st.rerun()
+                else:
+                    st.session_state.current_page = key
+                    st.rerun()
+    
+    st.markdown("<hr style='border: none; border-top: 1px solid var(--border-light); margin: 24px 0;'>", unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DASHBOARD PAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def render_dashboard():
+    partner_id = st.session_state.partner_id
+    partner = PARTNERS[partner_id]
+    
+    # Welcome section
+    st.markdown(f"""
+    <div style="margin-bottom: 40px;">
+        <div class="subtitle">Partner Dashboard</div>
+        <h1 class="headline-serif">Merhaba, {partner['name'].split()[0]}</h1>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Load data
+    stock_df = load_stock(partner_id)
+    sales_df = load_sales(partner_id)
+    workflow_df = load_workflow(partner_id)
+    
+    # Calculate metrics
+    total_stock = stock_df['Current_Stock'].sum() if not stock_df.empty else 0
+    total_sales = len(sales_df) if not sales_df.empty else 0
+    total_revenue = (sales_df['Unit_Price'] * sales_df['Quantity']).sum() if not sales_df.empty else 0
+    pending_tasks = len(workflow_df[workflow_df['Status'] == 'pending']) if not workflow_df.empty else 0
+    
+    # Stats Grid
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="zen-card">
+            <div class="stat-label">Toplam Stok</div>
+            <div class="stat-value">{total_stock}</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">adet</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="zen-card">
+            <div class="stat-label">Bu Ay Satış</div>
+            <div class="stat-value">{total_sales}</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">işlem</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div class="zen-card">
+            <div class="stat-label">Toplam Ciro</div>
+            <div class="stat-value">{total_revenue:,.0f}₺</div>
+            <div style="font-size: 0.8rem; color: var(--accent-sage); margin-top: 4px;">+12% geçen aya göre</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        glow_class = "card-glow-warning" if pending_tasks > 0 else ""
+        st.markdown(f"""
+        <div class="zen-card {glow_class}">
+            <div class="stat-label">Bekleyen İşlem</div>
+            <div class="stat-value" style="color: {'var(--accent-terracotta)' if pending_tasks > 0 else 'var(--text-primary)'};">{pending_tasks}</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">{'aksiyon gerekli' if pending_tasks > 0 else 'tamamlandı'}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<div style='height: 32px'></div>", unsafe_allow_html=True)
+    
+    # Two column layout
+    col_left, col_right = st.columns([1.5, 1])
+    
+    with col_left:
+        st.markdown("""
+        <div class="subtitle" style="margin-bottom: 16px;">Hızlı Satış Kaydı</div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('<div class="zen-card">', unsafe_allow_html=True)
+        
+        product_options = list(PRODUCTS.keys())
+        selected_product = st.selectbox("Ürün Seçin", product_options, key="quick_product")
+        
+        col_q1, col_q2 = st.columns(2)
+        with col_q1:
+            quantity = st.number_input("Adet", min_value=1, max_value=50, value=1, key="quick_qty")
+        with col_q2:
+            customer = st.text_input("Müşteri Adı", key="quick_customer")
+        
+        if st.button("💾 Satışı Kaydet", key="quick_save", use_container_width=True):
+            if customer:
+                sale_data = {
+                    "Sale_ID": f"SL-{int(time.time())}",
+                    "Partner_ID": partner_id,
+                    "Product": selected_product,
+                    "Quantity": quantity,
+                    "Unit_Price": PRODUCTS[selected_product]["price"],
+                    "Partner_Margin": PRODUCTS[selected_product]["price"] - PRODUCTS[selected_product]["partner_price"],
+                    "Status": "Completed",
+                    "Customer": customer,
+                    "Created_At": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                }
+                
+                if save_sale(sale_data) and update_stock(partner_id, selected_product, quantity):
+                    st.success(f"✓ {quantity}x {selected_product} satışı kaydedildi")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("Kayıt sırasında hata oluştu")
+            else:
+                st.warning("Lütfen müşteri adını girin")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col_right:
+        st.markdown("""
+        <div class="subtitle" style="margin-bottom: 16px;">Stok Durumu</div>
+        """, unsafe_allow_html=True)
+        
+        if not stock_df.empty:
+            for _, row in stock_df.iterrows():
+                product = row['Product']
+                current = row['Current_Stock']
+                initial = row['Initial_Stock']
+                pct = (current / initial) * 100 if initial > 0 else 0
+                color = PRODUCTS.get(product, {}).get('color', '#81B29A')
+                icon = PRODUCTS.get(product, {}).get('icon', '📦')
+                
+                warning = "⚠️" if pct < 30 else ""
+                
+                st.markdown(f"""
+                <div class="product-card" style="margin-bottom: 8px;">
+                    <div class="product-icon" style="background: {color}20;">{icon}</div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; font-size: 0.9rem;">{product} {warning}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">{current} / {initial} adet</div>
+                    </div>
+                    <div style="font-family: 'Instrument Serif', serif; font-size: 1.2rem; color: {color};">{pct:.0f}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STOCK TRACKING PAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def render_stock():
+    partner_id = st.session_state.partner_id
+    
+    st.markdown(f"""
+    <div style="margin-bottom: 40px;">
+        <div class="subtitle">Envanter Yönetimi</div>
+        <h1 class="headline-serif">Stok Takibi</h1>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    stock_df = load_stock(partner_id)
+    
+    if not stock_df.empty:
+        for _, row in stock_df.iterrows():
+            product = row['Product']
+            current = row['Current_Stock']
+            initial = row['Initial_Stock']
+            pct = (current / initial) * 100 if initial > 0 else 0
+            color = PRODUCTS.get(product, {}).get('color', '#81B29A')
+            icon = PRODUCTS.get(product, {}).get('icon', '📦')
+            sku = PRODUCTS.get(product, {}).get('sku', 'N/A')
+            price = PRODUCTS.get(product, {}).get('price', 0)
+            partner_price = PRODUCTS.get(product, {}).get('partner_price', 0)
+            margin = price - partner_price
+            
+            is_low = pct < 30
+            card_class = "card-glow-warning" if is_low else ""
+            
+            st.markdown(f"""
+            <div class="zen-card {card_class}" style="margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 24px;">
+                    <div class="product-icon" style="background: {color}20; width: 64px; height: 64px; font-size: 2rem;">{icon}</div>
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <span style="font-family: 'Instrument Serif', serif; font-size: 1.5rem;">{product}</span>
+                            {'<span class="status-badge status-pending">Düşük Stok</span>' if is_low else ''}
+                        </div>
+                        <div style="display: flex; gap: 32px; font-size: 0.85rem; color: var(--text-muted);">
+                            <span>SKU: {sku}</span>
+                            <span>Satış Fiyatı: {price}₺</span>
+                            <span>Partner Maliyeti: {partner_price}₺</span>
+                            <span style="color: var(--accent-sage);">Kar Marjı: {margin}₺</span>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-family: 'Instrument Serif', serif; font-size: 2.5rem; color: {color};">{current}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">/ {initial} adet</div>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; background: var(--bg-secondary); border-radius: 100px; height: 8px; overflow: hidden;">
+                    <div style="width: {pct}%; height: 100%; background: {color}; border-radius: 100px; transition: width 0.5s;"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("<div style='height: 32px'></div>", unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div class="subtitle" style="margin-bottom: 16px;">Stok Talebi Oluştur</div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('<div class="zen-card">', unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col1:
+            reorder_product = st.selectbox("Ürün", list(PRODUCTS.keys()), key="reorder_product")
+        with col2:
+            reorder_qty = st.number_input("Sipariş Adedi", min_value=10, max_value=100, value=20, step=10, key="reorder_qty")
+        with col3:
+            st.markdown("<div style='height: 28px'></div>", unsafe_allow_html=True)
+            if st.button("📤 Talep Gönder", key="reorder_submit", use_container_width=True):
+                st.success(f"✓ {reorder_qty} adet {reorder_product} talebi gönderildi")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
     else:
-        dashboard()
+        st.markdown("""
+        <div class="empty-state">
+            <div class="empty-state-icon">📦</div>
+            <div>Henüz stok kaydı bulunmuyor</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WORKFLOW PAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def render_workflow():
+    partner_id = st.session_state.partner_id
+    
+    workflow_df = load_workflow(partner_id)
+    pending_df = workflow_df[workflow_df['Status'].isin(['pending', 'processing'])] if not workflow_df.empty else pd.DataFrame()
+    
+    pending_count = len(pending_df)
+    
+    st.markdown(f"""
+    <div style="margin-bottom: 40px;">
+        <div class="subtitle">Operasyonlar</div>
+        <h1 class="headline-serif">İş Akışı</h1>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if pending_count > 0:
+        st.markdown(f"""
+        <div class="zen-card card-glow-warning" style="margin-bottom: 24px; background: rgba(224, 122, 95, 0.05);">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="font-size: 2rem;">⚡</div>
+                <div>
+                    <div style="font-weight: 600; font-size: 1.1rem; color: var(--accent-terracotta);">{pending_count} Bekleyen İşlem</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">Aşağıdaki işlemleri tamamlamanız bekleniyor</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    if not pending_df.empty:
+        for idx, row in pending_df.iterrows():
+            task_id = row['Task_ID']
+            title = row['Title']
+            desc = row['Description']
+            status = row['Status']
+            priority = row['Priority']
+            created = row['Created_At']
+            
+            is_urgent = priority == 'high'
+            status_class = "status-pending" if status == 'pending' else "status-processing"
+            status_text = "Bekliyor" if status == 'pending' else "İşleniyor"
+            card_class = "card-glow-warning" if is_urgent else ""
+            
+            st.markdown(f"""
+            <div class="zen-card {card_class}" style="margin-bottom: 16px; border-left: 4px solid {'var(--accent-terracotta)' if is_urgent else 'var(--accent-sand)'};">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
+                            <span style="font-weight: 600; font-size: 1.1rem;">{title}</span>
+                            <span class="status-badge {status_class}">{status_text}</span>
+                            {'<span class="status-badge status-pending">Acil</span>' if is_urgent else ''}
+                        </div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">{desc}</div>
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">{task_id}</div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-light);">
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Oluşturulma: {created}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col1, col2, col3 = st.columns([3, 1, 1])
+            with col2:
+                if st.button("🔄 İşleme Al", key=f"process_{task_id}"):
+                    st.info("İşleme alındı")
+            with col3:
+                if st.button("✓ Tamamla", key=f"complete_{task_id}"):
+                    if complete_workflow_task(task_id):
+                        st.success("Tamamlandı!")
+                        time.sleep(0.5)
+                        st.rerun()
+    else:
+        st.markdown("""
+        <div class="empty-state">
+            <div class="empty-state-icon">✨</div>
+            <div style="font-size: 1.1rem; font-weight: 500; margin-bottom: 8px;">Harika!</div>
+            <div>Bekleyen işlem bulunmuyor</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPLETED TASKS PAGE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def render_completed():
+    partner_id = st.session_state.partner_id
+    
+    workflow_df = load_workflow(partner_id)
+    completed_df = workflow_df[workflow_df['Status'] == 'completed'] if not workflow_df.empty else pd.DataFrame()
+    
+    sales_df = load_sales(partner_id)
+    completed_sales = sales_df[sales_df['Status'] == 'Completed'] if not sales_df.empty else pd.DataFrame()
+    
+    completed_count = len(completed_df) + len(completed_sales)
+    
+    st.markdown(f"""
+    <div style="margin-bottom: 40px;">
+        <div class="subtitle">Tamamlanan İşlemler</div>
+        <h1 class="headline-serif">Başarılar</h1>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if completed_count > 0:
+        st.markdown(f"""
+        <div class="zen-card card-glow-success" style="margin-bottom: 24px; background: rgba(129, 178, 154, 0.05);">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="font-size: 2rem;">🎉</div>
+                <div>
+                    <div style="font-weight: 600; font-size: 1.1rem; color: var(--accent-sage);">{completed_count} Tamamlanan İşlem</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">Bu dönemde başarıyla tamamladığınız işlemler</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Workflow completions
+    if not completed_df.empty:
+        st.markdown("""
+        <div class="subtitle" style="margin-bottom: 16px;">Tamamlanan Görevler</div>
+        """, unsafe_allow_html=True)
+        
+        for idx, row in completed_df.iterrows():
+            st.markdown(f"""
+            <div class="zen-card" style="margin-bottom: 12px; border-left: 4px solid var(--accent-sage);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 1.2rem;">✓</span>
+                        <div>
+                            <div style="font-weight: 600;">{row['Title']}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">{row['Description']}</div>
+                        </div>
+                    </div>
+                    <span class="status-badge status-completed">Tamamlandı</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # Sales completions
+    if not completed_sales.empty:
+        st.markdown("""
+        <div class="subtitle" style="margin: 32px 0 16px 0;">Tamamlanan Satışlar</div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('<div class="zen-card">', unsafe_allow_html=True)
+        
+        table_html = """
+        <table class="zen-table">
+            <thead>
+                <tr>
+                    <th>Satış ID</th>
+                    <th>Ürün</th>
+                    <th>Adet</th>
+                    <th>Tutar</th>
+                    <th>Müşteri</th>
+                    <th>Tarih</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+        
+        for _, row in completed_sales.head(10).iterrows():
+            total = row['Unit_Price'] * row['Quantity']
+            table_html += f"""
+            <tr>
+                <td><span style="font-weight: 500;">{row['Sale_ID']}</span></td>
+                <td>{row['Product']}</td>
+                <td>{row['Quantity']}</td>
+                <td style="font-weight: 600;">{total:,.0f}₺</td>
+                <td>{row['Customer']}</td>
+                <td style="color: var(--text-muted);">{row['Created_At'][:10]}</td>
+            </tr>
+            """
+        
+        table_html += "</tbody></table>"
+        st.markdown(table_html, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    if completed_count == 0:
+        st.markdown("""
+        <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <div>Henüz tamamlanan işlem bulunmuyor</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN APPLICATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def main():
+    init_databases()
+    
+    if not st.session_state.logged_in:
+        render_login()
+    else:
+        inject_global_styles()
+        render_header()
+        render_navigation()
+        
+        page = st.session_state.current_page
+        
+        if page == "dashboard":
+            render_dashboard()
+        elif page == "stock":
+            render_stock()
+        elif page == "workflow":
+            render_workflow()
+        elif page == "completed":
+            render_completed()
+
+if __name__ == "__main__":
+    main()
